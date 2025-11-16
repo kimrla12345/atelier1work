@@ -16,6 +16,8 @@ function preload() {
   img2 = loadImage('lightoff.jpg');
   video = createVideo(['lightbroke.mp4']);
   video.hide();
+  video.setAttribute('playsinline', '');
+  video.setAttribute('webkit-playsinline', '');
 }
 
 function setup() {
@@ -30,33 +32,38 @@ function setup() {
   wrap.addEventListener('touchstart', (e) => {
     if (e.touches.length > 1) e.preventDefault();
   }, { passive: false });
+  wrap.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+  }, { passive: false });
   wrap.addEventListener('gesturestart', (e) => {
     e.preventDefault();
   }, { passive: false });
+  
+  document.body.style.overscrollBehavior = 'none';
+  document.body.style.overflow = 'hidden';
+  document.documentElement.style.overflow = 'hidden';
   
   video.onended(() => {
     videoPlaying = false;
     toggleCount = 0;
     video.time(0);
-    video.hide();
   });
 }
-
 
 function getScaledDimensions(sourceWidth, sourceHeight) {
   let ar_source = sourceWidth / sourceHeight;
   let ar_win = width / height;
   let drawW, drawH;
   
-
+  // 이미지가 짤리지 않게 전체 화면에 맞추기
   if (ar_source > ar_win) {
-   
-    drawH = height;
-    drawW = height * ar_source;
+    // 원본이 더 넓음: 너비를 화면에 맞추고 높이는 자동
+    drawW = width * 0.98; // 양쪽 여백 추가
+    drawH = drawW / ar_source;
   } else {
-  
-    drawW = width;
-    drawH = width / ar_source;
+    // 원본이 더 좁음: 높이를 화면에 맞추고 너비는 자동
+    drawH = height * 0.95; // 위아래 여백 추가
+    drawW = drawH * ar_source;
   }
   
   return { w: drawW, h: drawH };
@@ -66,7 +73,6 @@ function draw() {
   background(0);
   
   if(videoPlaying) {
-   
     if (video.width > 0 && video.height > 0) {
       let scaled = getScaledDimensions(video.width, video.height);
       imageMode(CENTER);
@@ -75,12 +81,10 @@ function draw() {
     return;
   }
   
-
   let scaled = getScaledDimensions(currentImg.width, currentImg.height);
   imageMode(CENTER);
   image(currentImg, width/2, height/2, scaled.w, scaled.h);
   
-
   if(currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0, 10, 0, 150);
     let radius = map(brightnessLevel, 0, 10, 50, 400);
@@ -98,7 +102,6 @@ function draw() {
   
   drawSlider();
   
-  // 클릭 횟수 표시
   fill(255);
   textAlign(CENTER, TOP);
   textSize(14);
@@ -142,8 +145,9 @@ function mousePressed(){
   
   if(toggleCount > 50 && currentImg === img2){
     videoPlaying = true;
-    video.show();
-    video.play();
+    video.play().catch(() => {
+      console.log('자동재생 제한됨');
+    });
     savedBrightnessLevel = brightnessLevel;
     return false;
   }
@@ -193,8 +197,9 @@ function touchStarted(){
   
   if(toggleCount > 50 && currentImg === img2){
     videoPlaying = true;
-    video.show();
-    video.play();
+    video.play().catch(() => {
+      console.log('자동재생 제한됨');
+    });
     savedBrightnessLevel = brightnessLevel;
     return false;
   }
