@@ -1,5 +1,4 @@
 let img1, img2, currentImg;
-let videoElement;
 let sliderY = 0;
 let sliderHeight = 30;
 let brightnessLevel = 0;
@@ -9,6 +8,9 @@ let sliderMaxY = 0;
 let savedBrightnessLevel = 0;
 let touchCount = 0;
 let lastTouchY = null;
+
+// 새로 추가된 전역 변수들
+let videoElement;
 let isPlayingVideo = false;
 
 function preload() {
@@ -23,22 +25,34 @@ function setup() {
   // 모바일에서 캔버스가 터치를 독점하지 않게
   c.elt.style.touchAction = "none";
 
-  // 비디오 요소 생성 (HTML 네이티브 요소)
+  // ---------- 비디오 요소 생성 (iOS 사파리 인라인 재생용) ----------
   videoElement = document.createElement('video');
+
+  // iOS 인라인 재생을 위한 필수 속성들 (순서: 속성 먼저 → src 나중)
+  videoElement.setAttribute('playsinline', 'playsinline');      // iOS Safari 인라인 재생 허용
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline'); // 레거시 WebKit용[web:107][web:115][web:119]
+  videoElement.playsInline = true;                             // 최신 브라우저용 속성[web:114][web:119]
+
   videoElement.src = 'lightbroke.mp4';
+
+  // 화면에 꽉 차게, 검은 여백 없게
   videoElement.style.display = 'none';
-  videoElement.style.width = '100vw';
-  videoElement.style.height = '100vh';
-  videoElement.style.objectFit = 'cover';
-  videoElement.style.objectPosition = 'center';
   videoElement.style.position = 'fixed';
   videoElement.style.top = '0';
   videoElement.style.left = '0';
+  videoElement.style.width = '100vw';
+  videoElement.style.height = '100vh';
+  videoElement.style.objectFit = 'cover';      // 화면 꽉 채우기 (잘릴 수는 있음)[web:59][web:69]
+  videoElement.style.objectPosition = 'center';
   videoElement.style.zIndex = '1000';
   videoElement.style.backgroundColor = '#000';
+
   document.body.appendChild(videoElement);
 
+  // 비디오가 끝났을 때 초기화
   videoElement.addEventListener('ended', onVideoEnded);
+
+  // -------------------------------------------------------
 
   currentImg = img2;
 
@@ -47,7 +61,7 @@ function setup() {
 }
 
 function draw() {
-  // 비디오 재생 중이면 p5 렌더링 중단
+  // 비디오 재생 중이면 캔버스는 그리지 않음
   if (isPlayingVideo) {
     return;
   }
@@ -122,7 +136,7 @@ function updateBrightness() {
 
 function mousePressed() {
   if (isPlayingVideo) return false;
-  
+
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
@@ -134,7 +148,7 @@ function mousePressed() {
 
 function mouseDragged() {
   if (isPlayingVideo) return false;
-  
+
   if (isDraggingSlider) {
     sliderY += movedY;
     sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
@@ -149,12 +163,12 @@ function mouseReleased() {
 }
 
 // ----------------------------
-// 모바일 터치 이벤트 (완전 안드로이드 대응)
+// 모바일 터치 이벤트 (iOS + 안드로이드)
 // ----------------------------
 
 function touchStarted() {
   if (isPlayingVideo) return false;
-  
+
   if (touches.length > 0) {
     let t = touches[0];
     let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
@@ -167,14 +181,16 @@ function touchStarted() {
     }
   }
 
-  // 탭 판정 준비
-  this._isTap = true;
+  // 슬라이더 안 잡았으면 탭 후보
+  this._tapCandidate = true;
+
   return false;
 }
 
 function touchMoved() {
   if (isPlayingVideo) return false;
-  
+
+  // 슬라이더 드래그 중
   if (isDraggingSlider && touches.length > 0) {
     let t = touches[0];
 
@@ -188,23 +204,25 @@ function touchMoved() {
     lastTouchY = t.y;
   }
 
-  // 움직였으면 탭 아님
-  this._isTap = false;
+  // 움직였으면 "탭 아님"
+  this._tapCandidate = false;
+
   return false;
 }
 
 function touchEnded() {
   if (isPlayingVideo) return false;
-  
+
   isDraggingSlider = false;
   lastTouchY = null;
 
-  // 움직이지 않았으면 탭으로 간주
-  if (this._isTap) {
+  // 슬라이더 잡지 않았고, 움직이지 않았으면 -> 탭으로 간주
+  if (this._tapCandidate) {
     toggleImage();
   }
 
-  this._isTap = false;
+  this._tapCandidate = false;
+
   return false;
 }
 
@@ -215,7 +233,7 @@ function touchEnded() {
 function toggleImage() {
   touchCount++;
 
-  // 61번 터치에서 비디오 재생
+  // 61번째 터치에서 비디오 재생
   if (touchCount === 61) {
     playVideo();
     return;
@@ -234,10 +252,16 @@ function toggleImage() {
   }
 }
 
+// ----------------------------
+// 비디오 재생 / 종료 처리
+// ----------------------------
+
 function playVideo() {
   isPlayingVideo = true;
   videoElement.style.display = 'block';
   videoElement.currentTime = 0;
+
+  // 사용자 터치 이벤트 안에서 호출되므로 iOS에서도 재생 허용[web:114][web:119]
   videoElement.play().catch(err => {
     console.error('Video playback failed:', err);
     resetAfterVideo();
@@ -253,7 +277,7 @@ function resetAfterVideo() {
   videoElement.style.display = 'none';
   videoElement.pause();
   videoElement.currentTime = 0;
-  
+
   // 초기 상태로 리셋
   touchCount = 0;
   currentImg = img2;
