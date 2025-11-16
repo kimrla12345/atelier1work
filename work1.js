@@ -46,7 +46,7 @@ function draw() {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
     
-    let lightX = width/1.75 + 100;
+    let lightX = width/1.8 + 100;
     let lightY = height/2;
     
     for (let r = radius; r > 0; r -= 10) {
