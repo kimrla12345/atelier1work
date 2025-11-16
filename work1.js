@@ -132,10 +132,11 @@ function touchStarted() {
     let distToSlider = dist(touchX, touchY, 25, sliderY + sliderHeight / 2);
     if (distToSlider < 20) { 
       isDraggingSlider = true;
-      return false;
+      return; // 슬라이더 드래그 시작 - return만 함 (false 아님)
     }
   }
   
+  // 슬라이더가 아닌 곳 클릭: 이미지 토글
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel; 
@@ -149,7 +150,6 @@ function touchStarted() {
     sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
   }
   lastImageState = currentImg;
-  return false;
 }
 
 function touchMoved() {
