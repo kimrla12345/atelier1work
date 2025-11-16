@@ -29,7 +29,7 @@ function setup() {
   videoElement.style.display = 'none';
   videoElement.style.width = '100vw';
   videoElement.style.height = '100vh';
-  videoElement.style.objectFit = 'contain';
+  videoElement.style.objectFit = 'cover';
   videoElement.style.objectPosition = 'center';
   videoElement.style.position = 'fixed';
   videoElement.style.top = '0';
