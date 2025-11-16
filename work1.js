@@ -5,7 +5,6 @@ let brightnessLevel = 0;
 let isDraggingSlider = false;
 let sliderMinY = 50;
 let sliderMaxY = 0;
-let lastImageState = null;
 let savedBrightnessLevel = 0;
 
 function preload() {
@@ -17,7 +16,6 @@ function setup() {
   let c = createCanvas(windowWidth, windowHeight);
   c.parent('canvasWrap');
   currentImg = img2;
-  lastImageState = img2;
   
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
@@ -81,20 +79,24 @@ function updateBrightness() {
   
   if (brightnessLevel > 0) {
     currentImg = img1;
-    lastImageState = img1;
   } else {
     currentImg = img2;
-    lastImageState = img2;
   }
+}
+
+function isSliderTouched(touchX, touchY) {
+  let distToSlider = dist(touchX, touchY, 25, sliderY + sliderHeight / 2);
+  return distToSlider < 25; // 터치 범위 조금 더 넓게
 }
 
 function mousePressed() {
   let distToSlider = dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2);
-  if (distToSlider < 20) { 
+  if (distToSlider < 25) { 
     isDraggingSlider = true;
     return false;
   }
   
+  // 슬라이더 아닌 곳 클릭: 이미지 토글
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel; 
@@ -103,11 +105,9 @@ function mousePressed() {
   } else {
     currentImg = img1;
     brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 5; 
-   
     let normalizedBrightness = brightnessLevel / 10; 
     sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
   }
-  lastImageState = currentImg;
   return false;
 }
 
@@ -125,18 +125,18 @@ function mouseReleased() {
 }
 
 function touchStarted() {
+  // 슬라이더 터치 감지
   if (touches.length > 0) {
     let touchX = touches[0].x;
     let touchY = touches[0].y;
     
-    let distToSlider = dist(touchX, touchY, 25, sliderY + sliderHeight / 2);
-    if (distToSlider < 20) { 
+    if (isSliderTouched(touchX, touchY)) {
       isDraggingSlider = true;
-      return; // 슬라이더 드래그 시작 - return만 함 (false 아님)
+      return false; // 슬라이더 드래그 시작
     }
   }
   
-  // 슬라이더가 아닌 곳 클릭: 이미지 토글
+  // 슬라이더가 아닌 곳: 이미지 토글
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel; 
@@ -145,11 +145,11 @@ function touchStarted() {
   } else {
     currentImg = img1;
     brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 5; 
-    
     let normalizedBrightness = brightnessLevel / 10; 
     sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
   }
-  lastImageState = currentImg;
+  
+  return false;
 }
 
 function touchMoved() {
