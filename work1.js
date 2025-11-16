@@ -10,7 +10,6 @@ let savedBrightnessLevel = 0;
 let touchCount = 0;
 let lastTouchY = null;
 let isPlayingVideo = false;
-let videoStarted = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -21,12 +20,10 @@ function setup() {
   let c = createCanvas(windowWidth, windowHeight);
   c.parent('canvasWrap');
 
-  // 안드로이드/iOS 터치 처리 최적화
+  // 모바일에서 캔버스가 터치를 독점하지 않게
   c.elt.style.touchAction = "none";
-  c.elt.style.WebkitUserSelect = "none";
-  c.elt.style.userSelect = "none";
 
-  // 비디오 요소 생성 (p5.js 외부에서 관리)
+  // 비디오 요소 생성 (HTML 네이티브 요소)
   videoElement = document.createElement('video');
   videoElement.src = 'lightbroke.mp4';
   videoElement.style.display = 'none';
@@ -44,11 +41,13 @@ function setup() {
   videoElement.addEventListener('ended', onVideoEnded);
 
   currentImg = img2;
+
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 }
 
 function draw() {
+  // 비디오 재생 중이면 p5 렌더링 중단
   if (isPlayingVideo) {
     return;
   }
@@ -122,10 +121,8 @@ function updateBrightness() {
 // ----------------------------
 
 function mousePressed() {
-  if (isPlayingVideo) {
-    return;
-  }
-
+  if (isPlayingVideo) return false;
+  
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
@@ -136,10 +133,8 @@ function mousePressed() {
 }
 
 function mouseDragged() {
-  if (isPlayingVideo) {
-    return false;
-  }
-
+  if (isPlayingVideo) return false;
+  
   if (isDraggingSlider) {
     sliderY += movedY;
     sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
@@ -154,14 +149,12 @@ function mouseReleased() {
 }
 
 // ----------------------------
-// 모바일 터치 이벤트 (안드로이드 호환 버전)
+// 모바일 터치 이벤트 (완전 안드로이드 대응)
 // ----------------------------
 
 function touchStarted() {
-  if (isPlayingVideo) {
-    return false;
-  }
-
+  if (isPlayingVideo) return false;
+  
   if (touches.length > 0) {
     let t = touches[0];
     let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
@@ -174,19 +167,14 @@ function touchStarted() {
     }
   }
 
-  // 탭 후보 표시
-  this._tapCandidate = true;
-  this._touchStartTime = millis();
-
+  // 탭 판정 준비
+  this._isTap = true;
   return false;
 }
 
 function touchMoved() {
-  if (isPlayingVideo) {
-    return false;
-  }
-
-  // 슬라이더 드래그 중
+  if (isPlayingVideo) return false;
+  
   if (isDraggingSlider && touches.length > 0) {
     let t = touches[0];
 
@@ -198,46 +186,36 @@ function touchMoved() {
     }
 
     lastTouchY = t.y;
-    this._tapCandidate = false;
-  } else if (touches.length > 0) {
-    // 슬라이더 아닌 곳에서 움직이면 탭 아님
-    let t = touches[0];
-    let moveDistance = dist(t.x, t.y, pmouseX, pmouseY);
-    if (moveDistance > 5) {
-      this._tapCandidate = false;
-    }
   }
 
+  // 움직였으면 탭 아님
+  this._isTap = false;
   return false;
 }
 
 function touchEnded() {
-  if (isPlayingVideo) {
-    return false;
-  }
-
+  if (isPlayingVideo) return false;
+  
   isDraggingSlider = false;
   lastTouchY = null;
 
-  // 움직임이 거의 없고 시간이 짧으면 탭으로 간주
-  if (this._tapCandidate && millis() - this._touchStartTime < 300) {
+  // 움직이지 않았으면 탭으로 간주
+  if (this._isTap) {
     toggleImage();
   }
 
-  this._tapCandidate = false;
-  this._touchStartTime = null;
-
+  this._isTap = false;
   return false;
 }
 
 // ----------------------------
-// 이미지 토글 기능 + 비디오 재생
+// 이미지 토글 기능 + 비디오 트리거
 // ----------------------------
 
 function toggleImage() {
   touchCount++;
 
-  // 60번째 터치 후 61번째에 비디오 재생
+  // 61번 터치에서 비디오 재생
   if (touchCount === 61) {
     playVideo();
     return;
