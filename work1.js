@@ -18,7 +18,7 @@ function setup() {
   let c = createCanvas(windowWidth, windowHeight);
   c.parent('canvasWrap');
 
-  // 모바일에서 캔버스가 터치 독점하지 않도록
+  // 모바일에서 캔버스가 터치를 독점하지 않게
   c.elt.style.touchAction = "none";
 
   currentImg = img2;
@@ -46,13 +46,13 @@ function draw() {
   imageMode(CENTER);
   image(currentImg, width/2, height/2, drawW, drawH);
 
-  // 라이팅 효과
+  // 조명 효과
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
 
-    let lightX = width/2 + 100;
-    let lightY = height/2;
+    let lightX = width / 1.8 + 100;
+    let lightY = height / 2;
 
     for (let r = radius; r > 0; r -= 10) {
       let alpha = map(r, 0, radius, brightness, 0);
@@ -64,6 +64,7 @@ function draw() {
 
   drawSlider();
 
+  // 클릭/터치 횟수
   fill(255);
   textAlign(CENTER, TOP);
   textSize(16);
@@ -91,6 +92,10 @@ function updateBrightness() {
   }
 }
 
+// ----------------------------
+// PC 마우스 이벤트
+// ----------------------------
+
 function mousePressed() {
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
@@ -112,6 +117,10 @@ function mouseReleased() {
   isDraggingSlider = false;
 }
 
+// ----------------------------
+// 모바일 터치 이벤트 (iOS + 안드로이드 완전 대응 버전)
+// ----------------------------
+
 function touchStarted() {
   if (touches.length > 0) {
     let t = touches[0];
@@ -120,14 +129,18 @@ function touchStarted() {
     if (distToSlider < 25) {
       isDraggingSlider = true;
       lastTouchY = t.y;
-      return;
+      return false;
     }
   }
 
-  toggleImage();
+  // 슬라이더 안 잡았고, 탭인지? 드래그인지? touchEnded에서 판단
+  this._tapCandidate = true;
+
+  return false;
 }
 
 function touchMoved() {
+  // 슬라이더 드래그 중
   if (isDraggingSlider && touches.length > 0) {
     let t = touches[0];
 
@@ -140,11 +153,21 @@ function touchMoved() {
 
     lastTouchY = t.y;
   }
+
+  this._tapCandidate = false;
+
+  return false;
 }
 
 function touchEnded() {
   isDraggingSlider = false;
   lastTouchY = null;
+
+  if (this._tapCandidate) {
+    toggleImage();
+  }
+
+  this._tapCandidate = false;
 }
 
 function toggleImage() {
