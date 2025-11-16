@@ -7,11 +7,14 @@ let sliderMinY = 50;
 let sliderMaxY = 0;
 let lastImageState = null;
 let savedBrightnessLevel = 0;
+let clickCount = 0; // 클릭 수 카운트 변수
+
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
   img2 = loadImage('lightoff.jpg'); 
 }
+
 
 function setup() {
   let c = createCanvas(windowWidth, windowHeight);
@@ -29,7 +32,12 @@ function setup() {
   wrap.addEventListener('gesturestart', (e) => {
     e.preventDefault();
   }, { passive: false });
+  // 스크롤 방지 (삼성폰)
+  wrap.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+  }, { passive: false });
 }
+
 
 function draw() {
   background(0); 
@@ -62,7 +70,14 @@ function draw() {
   }
   
   drawSlider();
+  
+  // 클릭 수 표시 (중간 상단에 흰색)
+  fill(255);
+  textAlign(CENTER, TOP);
+  textSize(16);
+  text('Clicks: ' + clickCount, width/2, 20);
 }
+
 
 function drawSlider() {
   stroke(100);
@@ -73,6 +88,7 @@ function drawSlider() {
   noStroke();
   circle(25, sliderY + sliderHeight / 2, 16);
 }
+
 
 function updateBrightness() {
   let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY));
@@ -88,12 +104,15 @@ function updateBrightness() {
   }
 }
 
+
 function mousePressed() {
   let distToSlider = dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2);
   if (distToSlider < 20) { 
     isDraggingSlider = true;
     return false;
   }
+  
+  clickCount++; // 클릭 수 증가
   
   if (currentImg === img1) {
     currentImg = img2;
@@ -111,6 +130,7 @@ function mousePressed() {
   return false;
 }
 
+
 function mouseDragged() {
   if (isDraggingSlider) {
     sliderY += movedY;
@@ -120,9 +140,11 @@ function mouseDragged() {
   }
 }
 
+
 function mouseReleased() {
   isDraggingSlider = false;
 }
+
 
 function touchStarted() {
   if (touches.length > 0) {
@@ -135,6 +157,8 @@ function touchStarted() {
       return false;
     }
   }
+  
+  clickCount++; // 클릭 수 증가
   
   if (currentImg === img1) {
     currentImg = img2;
@@ -152,6 +176,7 @@ function touchStarted() {
   return false;
 }
 
+
 function touchMoved() {
   if (isDraggingSlider && touches.length > 0) {
     sliderY += (touches[0].y - touches[0].py);
@@ -161,9 +186,11 @@ function touchMoved() {
   }
 }
 
+
 function touchEnded() {
   isDraggingSlider = false;
 }
+
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
