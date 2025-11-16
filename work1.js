@@ -7,7 +7,6 @@ let sliderMinY = 50;
 let sliderMaxY = 0;
 let lastImageState = null;
 let savedBrightnessLevel = 0;
-let clickCount = 0;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -29,14 +28,6 @@ function setup() {
   }, { passive: false });
   wrap.addEventListener('gesturestart', (e) => {
     e.preventDefault();
-  }, { passive: false });
-  
-  // touchmove 이벤트: 슬라이더 드래그일 때만 기본 동작 방지
-  wrap.addEventListener('touchmove', (e) => {
-    // 슬라이더 영역에서만 드래그 허용
-    if (isDraggingSlider) {
-      e.preventDefault();
-    }
   }, { passive: false });
 }
 
@@ -71,11 +62,6 @@ function draw() {
   }
   
   drawSlider();
-  
-  fill(255);
-  textAlign(CENTER, TOP);
-  textSize(16);
-  text('Clicks: ' + clickCount, width/2, 20);
 }
 
 function drawSlider() {
@@ -108,8 +94,6 @@ function mousePressed() {
     isDraggingSlider = true;
     return false;
   }
-  
-  clickCount++;
   
   if (currentImg === img1) {
     currentImg = img2;
@@ -148,11 +132,9 @@ function touchStarted() {
     let distToSlider = dist(touchX, touchY, 25, sliderY + sliderHeight / 2);
     if (distToSlider < 20) { 
       isDraggingSlider = true;
-      return false; // 슬라이더 드래그 시작
+      return false;
     }
   }
-  
-  clickCount++;
   
   if (currentImg === img1) {
     currentImg = img2;
