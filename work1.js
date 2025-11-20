@@ -77,7 +77,8 @@ function draw() {
   }
 
   imageMode(CENTER);
-  image(currentImg, width/2, height/2, drawW, drawH);
+  let offsetX = -80;
+  image(currentImg, width / 2 + offsetX, height / 2, drawW, drawH);
 
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
@@ -210,7 +211,7 @@ function touchEnded() {
 function toggleImage() {
   touchCount++;
 
-  if (touchCount === 61) {
+  if (touchCount === 101) {
     playVideo();
     return;
   }
