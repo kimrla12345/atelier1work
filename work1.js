@@ -99,7 +99,7 @@ function draw() {
   fill(255);
   textAlign(CENTER, TOP);
   textSize(16);
-  text('Clicks: ' + touchCount, width/2, 20);
+  text('Click: ' + touchCount, width/2, 20);
 }
 
 function drawSlider() {
