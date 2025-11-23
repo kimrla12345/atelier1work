@@ -12,7 +12,7 @@ let videoElement;
 let isPlayingVideo = false;
 let isShaking = false;
 let shakeTimer = null;
-let motionPermissionGranted = false;
+let lastX = 0, lastY = 0, lastZ = 0;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -47,25 +47,45 @@ function setup() {
   currentImg = img2;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+  
+  window.addEventListener('devicemotion', handleDeviceMotion);
 }
 
-async function requestMotionPermission() {
-  if (motionPermissionGranted) return;
+function handleDeviceMotion(event) {
+  if (isPlayingVideo || isShaking) return;
   
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    try {
-      const response = await DeviceMotionEvent.requestPermission();
-      if (response === 'granted') {
-        motionPermissionGranted = true;
-        setShakeThreshold(25);
-      }
-    } catch (error) {
-      console.error('Permission request failed:', error);
-    }
-  } else {
-    motionPermissionGranted = true;
-    setShakeThreshold(25);
+  const acc = event.accelerationIncludingGravity;
+  if (!acc) return;
+  
+  const x = acc.x || 0;
+  const y = acc.y || 0;
+  const z = acc.z || 0;
+  
+  const deltaX = Math.abs(x - lastX);
+  const deltaY = Math.abs(y - lastY);
+  const deltaZ = Math.abs(z - lastZ);
+  
+  if (deltaX > 15 || deltaY > 15 || deltaZ > 15) {
+    triggerShake();
   }
+  
+  lastX = x;
+  lastY = y;
+  lastZ = z;
+}
+
+function triggerShake() {
+  if (isShaking) return;
+  
+  isShaking = true;
+  currentImg = img1;
+  
+  if (shakeTimer) clearTimeout(shakeTimer);
+  
+  shakeTimer = setTimeout(() => {
+    isShaking = false;
+    currentImg = img2;
+  }, 2000);
 }
 
 function draw() {
@@ -135,7 +155,9 @@ function updateBrightness() {
 }
 
 function mousePressed() {
-  requestMotionPermission();
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().catch(() => {});
+  }
   
   if (isPlayingVideo) return false;
 
@@ -165,7 +187,9 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  requestMotionPermission();
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().catch(() => {});
+  }
   
   if (isPlayingVideo) return false;
 
@@ -273,18 +297,4 @@ function resetAfterVideo() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   sliderMaxY = height - 50 - sliderHeight;
-}
-
-function deviceShaken() {
-  if (!motionPermissionGranted || isPlayingVideo || isShaking) return;
-  
-  isShaking = true;
-  currentImg = img1;
-  
-  if (shakeTimer) clearTimeout(shakeTimer);
-  
-  shakeTimer = setTimeout(() => {
-    isShaking = false;
-    currentImg = img2;
-  }, 2000);
 }
