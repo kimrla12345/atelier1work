@@ -10,9 +10,9 @@ let touchCount = 0;
 let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
-let shakeEnabled = false;
 let lastShakeTime = 0;
 let lastAcceleration = { x: 0, y: 0, z: 0 };
+let permissionRequested = false;
 
 function preload() {
   lightonImg = loadImage('lighton.jpg');  
@@ -47,26 +47,22 @@ function setup() {
   currentImg = lightoffImg;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
-  
-  setupShake();
 }
 
-function setupShake() {
+function requestSensorPermission() {
+  if (permissionRequested) return;
+  permissionRequested = true;
+  
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    document.addEventListener('touchstart', function enableShake() {
-      DeviceMotionEvent.requestPermission()
-        .then(response => {
-          if (response === 'granted') {
-            window.addEventListener('devicemotion', handleShake);
-            shakeEnabled = true;
-          }
-        })
-        .catch(console.error);
-      document.removeEventListener('touchstart', enableShake);
-    }, { once: true });
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener('devicemotion', handleShake);
+        }
+      })
+      .catch(console.error);
   } else {
     window.addEventListener('devicemotion', handleShake);
-    shakeEnabled = true;
   }
 }
 
@@ -84,7 +80,7 @@ function handleShake(event) {
   
   const now = Date.now();
   
-  if (totalDelta > 15 && now - lastShakeTime > 200) {
+  if (totalDelta > 15 && now - lastShakeTime > 300) {
     lastShakeTime = now;
     
     if (currentImg === lightoffImg) {
@@ -169,6 +165,8 @@ function updateBrightness() {
 }
 
 function mousePressed() {
+  requestSensorPermission();
+  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -197,6 +195,8 @@ function mouseReleased() {
 }
 
 function touchStarted() {
+  requestSensorPermission();
+  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
