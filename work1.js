@@ -12,7 +12,6 @@ let videoElement;
 let isPlayingVideo = false;
 let isShaking = false;
 let shakeTimer = null;
-let permissionButton = null;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -26,18 +25,18 @@ function setup() {
   c.elt.style.touchAction = "none";
 
   videoElement = document.createElement('video');
-  videoElement.setAttribute('playsinline', 'playsinline');
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
+  videoElement.setAttribute('playsinline', '');
+  videoElement.setAttribute('webkit-playsinline', '');
   videoElement.playsInline = true;
   videoElement.src = 'lightbroke.mp4';
   videoElement.style.display = 'none';
   videoElement.style.position = 'fixed';
-  videoElement.style.top = '0';
-  videoElement.style.left = '0';
-  videoElement.style.width = '100vw';
-  videoElement.style.height = '100vh';
-  videoElement.style.objectFit = 'cover';
-  videoElement.style.objectPosition = 'center';
+  videoElement.style.top = '50%';
+  videoElement.style.left = '50%';
+  videoElement.style.transform = 'translate(-50%, -50%)';
+  videoElement.style.width = '100%';
+  videoElement.style.height = '100%';
+  videoElement.style.objectFit = 'contain';
   videoElement.style.zIndex = '1000';
   videoElement.style.backgroundColor = '#000';
 
@@ -49,55 +48,7 @@ function setup() {
   sliderY = sliderMaxY;
 
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    permissionButton = createButton('Tap to Enable Shake');
-    permissionButton.position(windowWidth / 2 - 75, 100);
-    permissionButton.size(150, 50);
-    permissionButton.style('font-size', '16px');
-    permissionButton.style('background-color', '#32B8C6');
-    permissionButton.style('color', 'white');
-    permissionButton.style('border', 'none');
-    permissionButton.style('border-radius', '8px');
-    permissionButton.style('cursor', 'pointer');
-    permissionButton.style('z-index', '999');
-    
-    permissionButton.mousePressed(requestPermission);
-  } else {
-    window.addEventListener('devicemotion', handleShake);
-  }
-}
-
-function requestPermission() {
-  DeviceMotionEvent.requestPermission()
-    .then(response => {
-      if (response === 'granted') {
-        window.addEventListener('devicemotion', handleShake);
-        if (permissionButton) {
-          permissionButton.remove();
-          permissionButton = null;
-        }
-      }
-    })
-    .catch(console.error);
-}
-
-function handleShake(event) {
-  if (isPlayingVideo || isShaking) return;
-  
-  const acc = event.accelerationIncludingGravity;
-  if (!acc || !acc.x || !acc.y || !acc.z) return;
-  
-  const total = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
-  
-  if (total > 30) {
-    isShaking = true;
-    currentImg = img1;
-    
-    if (shakeTimer) clearTimeout(shakeTimer);
-    
-    shakeTimer = setTimeout(() => {
-      isShaking = false;
-      currentImg = img2;
-    }, 2000);
+    DeviceMotionEvent.requestPermission().catch(() => {});
   }
 }
 
