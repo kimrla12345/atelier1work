@@ -8,9 +8,11 @@ let sliderMaxY = 0;
 let savedBrightnessLevel = 0;
 let touchCount = 0;
 let lastTouchY = null;
-
 let videoElement;
 let isPlayingVideo = false;
+let isShaking = false;
+let shakeTimer = null;
+
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -23,12 +25,11 @@ function setup() {
 
   c.elt.style.touchAction = "none";
 
-
   videoElement = document.createElement('video');
 
-  videoElement.setAttribute('playsinline', 'playsinline');     
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline'); 
-  videoElement.playsInline = true;                             
+  videoElement.setAttribute('playsinline', 'playsinline');
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
+  videoElement.playsInline = true;
 
   videoElement.src = 'lightbroke.mp4';
 
@@ -45,15 +46,17 @@ function setup() {
 
   document.body.appendChild(videoElement);
 
-
   videoElement.addEventListener('ended', onVideoEnded);
-
-
 
   currentImg = img2;
 
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().catch(() => {});
+  }
 }
 
 function draw() {
@@ -63,6 +66,7 @@ function draw() {
 
   background(0);
 
+  if (isShaking) currentImg = img1;
 
   let ar_img = currentImg.width / currentImg.height;
   let ar_win = width / height;
@@ -206,7 +210,6 @@ function touchEnded() {
   return false;
 }
 
-
 function toggleImage() {
   touchCount++;
 
@@ -259,4 +262,23 @@ function resetAfterVideo() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   sliderMaxY = height - 50 - sliderHeight;
+}
+
+
+function deviceShaken() {
+  if (isPlayingVideo) return; 
+
+  isShaking = true;
+  currentImg = img1; 
+
+  if (shakeTimer) clearTimeout(shakeTimer);
+
+  shakeTimer = setTimeout(() => {
+    isShaking = false;
+    if (brightnessLevel > 0.1) {
+      currentImg = img1;
+    } else {
+      currentImg = img2;
+    }
+  }, 300);
 }
