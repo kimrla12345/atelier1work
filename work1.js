@@ -12,7 +12,7 @@ let videoElement;
 let isPlayingVideo = false;
 let lastShakeTime = 0;
 let lastAcceleration = { x: 0, y: 0, z: 0 };
-let permissionRequested = false;
+let permissionGranted = false;
 
 function preload() {
   lightonImg = loadImage('lighton.jpg');  
@@ -47,27 +47,35 @@ function setup() {
   currentImg = lightoffImg;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+  
+  setupPermission();
 }
 
-function requestSensorPermission() {
-  if (permissionRequested) return;
-  permissionRequested = true;
+function setupPermission() {
+  const requestPermission = () => {
+    if (permissionGranted) return;
+    
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission()
+        .then(response => {
+          if (response === 'granted') {
+            permissionGranted = true;
+            window.addEventListener('devicemotion', handleShake);
+          }
+        })
+        .catch(err => console.error('Permission denied:', err));
+    } else {
+      permissionGranted = true;
+      window.addEventListener('devicemotion', handleShake);
+    }
+  };
   
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          window.addEventListener('devicemotion', handleShake);
-        }
-      })
-      .catch(console.error);
-  } else {
-    window.addEventListener('devicemotion', handleShake);
-  }
+  document.body.addEventListener('click', requestPermission, { once: true });
+  document.body.addEventListener('touchstart', requestPermission, { once: true });
 }
 
 function handleShake(event) {
-  if (isPlayingVideo) return;
+  if (!permissionGranted || isPlayingVideo) return;
   
   const current = event.accelerationIncludingGravity;
   if (!current || !current.x || !current.y || !current.z) return;
@@ -165,8 +173,6 @@ function updateBrightness() {
 }
 
 function mousePressed() {
-  requestSensorPermission();
-  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -195,8 +201,6 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  requestSensorPermission();
-  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
