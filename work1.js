@@ -12,6 +12,7 @@ let videoElement;
 let isPlayingVideo = false;
 let lastShakeTime = 0;
 let lastAcc = { x: 0, y: 0, z: 0 };
+let permissionStatus = 'waiting';
 
 function preload() {
   lightonImg = loadImage('lighton.jpg');  
@@ -39,19 +40,26 @@ function setup() {
   currentImg = lightoffImg;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+}
+
+function requestPermission() {
+  permissionStatus = 'requesting';
   
-  const requestPermission = () => {
-    if (typeof DeviceMotionEvent?.requestPermission === 'function') {
-      DeviceMotionEvent.requestPermission().then(r => {
-        if (r === 'granted') window.addEventListener('devicemotion', handleShake);
-      }).catch(console.error);
-    } else {
-      window.addEventListener('devicemotion', handleShake);
-    }
-  };
-  
-  document.body.addEventListener('touchstart', requestPermission, { once: true });
-  document.body.addEventListener('click', requestPermission, { once: true });
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        permissionStatus = response;
+        if (response === 'granted') {
+          window.addEventListener('devicemotion', handleShake);
+        }
+      })
+      .catch(err => {
+        permissionStatus = 'error: ' + err.message;
+      });
+  } else {
+    permissionStatus = 'android';
+    window.addEventListener('devicemotion', handleShake);
+  }
 }
 
 function handleShake(e) {
@@ -107,9 +115,16 @@ function draw() {
   
   fill(255); textAlign(CENTER, TOP); textSize(16);
   text('Click: ' + touchCount, width/2, 20);
+  
+  // 권한 상태 표시
+  fill(255, 0, 0);
+  textSize(14);
+  text('Permission: ' + permissionStatus, width/2, 50);
 }
 
 function mousePressed() {
+  requestPermission();
+  
   if (isPlayingVideo) return false;
   if (dist(mouseX, mouseY, 25, sliderY + 15) < 25) {
     isDraggingSlider = true;
@@ -134,6 +149,8 @@ function mouseReleased() {
 }
 
 function touchStarted() {
+  requestPermission();
+  
   if (isPlayingVideo) return false;
   if (touches[0] && dist(touches[0].x, touches[0].y, 25, sliderY + 15) < 25) {
     isDraggingSlider = true;
