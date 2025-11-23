@@ -11,8 +11,7 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 let lastShakeTime = 0;
-let lastAcceleration = { x: 0, y: 0, z: 0 };
-let permissionGranted = false;
+let lastAcc = { x: 0, y: 0, z: 0 };
 
 function preload() {
   lightonImg = loadImage('lighton.jpg');  
@@ -20,77 +19,51 @@ function preload() {
 }
 
 function setup() {
-  let c = createCanvas(windowWidth, windowHeight);
-  c.parent('canvasWrap');
-
-  c.elt.style.touchAction = "none";
-
+  createCanvas(windowWidth, windowHeight).parent('canvasWrap');
+  
   videoElement = document.createElement('video');
-  videoElement.setAttribute('playsinline', 'playsinline');
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
-  videoElement.playsInline = true;
+  videoElement.setAttribute('playsinline', '');
   videoElement.src = 'lightbroke.mp4';
-  videoElement.style.display = 'none';
-  videoElement.style.position = 'fixed';
-  videoElement.style.top = '0';
-  videoElement.style.left = '0';
-  videoElement.style.width = '100vw';
-  videoElement.style.height = '100vh';
-  videoElement.style.objectFit = 'cover';
-  videoElement.style.objectPosition = 'center';
-  videoElement.style.zIndex = '1000';
-  videoElement.style.backgroundColor = '#000';
-
+  videoElement.style.cssText = 'display:none;position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;z-index:1000;background:#000';
+  videoElement.addEventListener('ended', () => {
+    videoElement.style.display = 'none';
+    videoElement.pause();
+    isPlayingVideo = false;
+    touchCount = 0;
+    currentImg = lightoffImg;
+    brightnessLevel = 0;
+    sliderY = sliderMaxY;
+  });
   document.body.appendChild(videoElement);
-  videoElement.addEventListener('ended', onVideoEnded);
 
   currentImg = lightoffImg;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
   
-  setupPermission();
-}
-
-function setupPermission() {
   const requestPermission = () => {
-    if (permissionGranted) return;
-    
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      DeviceMotionEvent.requestPermission()
-        .then(response => {
-          if (response === 'granted') {
-            permissionGranted = true;
-            window.addEventListener('devicemotion', handleShake);
-          }
-        })
-        .catch(err => console.error('Permission denied:', err));
+    if (typeof DeviceMotionEvent?.requestPermission === 'function') {
+      DeviceMotionEvent.requestPermission().then(r => {
+        if (r === 'granted') window.addEventListener('devicemotion', handleShake);
+      }).catch(console.error);
     } else {
-      permissionGranted = true;
       window.addEventListener('devicemotion', handleShake);
     }
   };
   
-  document.body.addEventListener('click', requestPermission, { once: true });
   document.body.addEventListener('touchstart', requestPermission, { once: true });
+  document.body.addEventListener('click', requestPermission, { once: true });
 }
 
-function handleShake(event) {
-  if (!permissionGranted || isPlayingVideo) return;
+function handleShake(e) {
+  if (isPlayingVideo) return;
+  const c = e.accelerationIncludingGravity;
+  if (!c?.x) return;
   
-  const current = event.accelerationIncludingGravity;
-  if (!current || !current.x || !current.y || !current.z) return;
-  
-  const deltaX = Math.abs(current.x - lastAcceleration.x);
-  const deltaY = Math.abs(current.y - lastAcceleration.y);
-  const deltaZ = Math.abs(current.z - lastAcceleration.z);
-  
-  const totalDelta = deltaX + deltaY + deltaZ;
-  
+  const delta = Math.abs(c.x - lastAcc.x) + Math.abs(c.y - lastAcc.y) + Math.abs(c.z - lastAcc.z);
   const now = Date.now();
   
-  if (totalDelta > 12 && now - lastShakeTime > 250) {
+  if (delta > 12 && now - lastShakeTime > 250) {
     lastShakeTime = now;
-    
     if (currentImg === lightoffImg) {
       currentImg = lightonImg;
     } else {
@@ -101,96 +74,56 @@ function handleShake(event) {
     }
   }
   
-  lastAcceleration.x = current.x;
-  lastAcceleration.y = current.y;
-  lastAcceleration.z = current.z;
+  lastAcc = { x: c.x, y: c.y, z: c.z };
 }
 
 function draw() {
-  if (isPlayingVideo) {
-    return;
-  }
-
+  if (isPlayingVideo) return;
+  
   background(0);
-
-  let ar_img = currentImg.width / currentImg.height;
-  let ar_win = width / height;
-  let drawW, drawH;
-
-  if (ar_img > ar_win) {
-    drawH = height;
-    drawW = height * ar_img;
-  } else {
-    drawW = width;
-    drawH = width / ar_img;
-  }
-
+  
+  let ar = currentImg.width / currentImg.height;
+  let drawW = ar > width/height ? height * ar : width;
+  let drawH = ar > width/height ? height : width / ar;
+  
   imageMode(CENTER);
   image(currentImg, width/2, height/2, drawW, drawH);
-
+  
   if (currentImg === lightonImg && brightnessLevel > 0) {
-    let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
-    let radius = map(brightnessLevel, 0.1, 5, 50, 400);
-
-    let lightX = width / 1.8 + 100;
-    let lightY = height / 2;
-
-    for (let r = radius; r > 0; r -= 10) {
-      let alpha = map(r, 0, radius, brightness, 0);
+    let b = map(brightnessLevel, 0.1, 5, 0, 150);
+    let r = map(brightnessLevel, 0.1, 5, 50, 400);
+    let x = width/1.8 + 100, y = height/2;
+    for (let i = r; i > 0; i -= 10) {
       noStroke();
-      fill(255, 255, 100, alpha * 0.2);
-      circle(lightX, lightY, r * 2);
+      fill(255, 255, 100, map(i, 0, r, b, 0) * 0.2);
+      circle(x, y, i * 2);
     }
   }
-
-  drawSlider();
-
-  fill(255);
-  textAlign(CENTER, TOP);
-  textSize(16);
-  text('Click: ' + touchCount, width/2, 20);
-}
-
-function drawSlider() {
-  stroke(100);
-  strokeWeight(2);
+  
+  stroke(100); strokeWeight(2);
   line(25, sliderMinY, 25, height - 50);
-
-  fill(255, 255, 100);
-  noStroke();
-  circle(25, sliderY + sliderHeight / 2, 16);
-}
-
-function updateBrightness() {
-  let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY));
-  brightnessLevel = constrain(normalizedPos * 5, 0, 5);
-
-  if (brightnessLevel > 0.1) {
-    currentImg = lightonImg;
-  } else {
-    currentImg = lightoffImg;
-  }
+  fill(255, 255, 100); noStroke();
+  circle(25, sliderY + 15, 16);
+  
+  fill(255); textAlign(CENTER, TOP); textSize(16);
+  text('Click: ' + touchCount, width/2, 20);
 }
 
 function mousePressed() {
   if (isPlayingVideo) return false;
-
-  if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
+  if (dist(mouseX, mouseY, 25, sliderY + 15) < 25) {
     isDraggingSlider = true;
     return false;
   }
-
   toggleImage();
   return false;
 }
 
 function mouseDragged() {
-  if (isPlayingVideo) return false;
-
-  if (isDraggingSlider) {
-    sliderY += movedY;
-    sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
-    updateBrightness();
+  if (isDraggingSlider && !isPlayingVideo) {
+    sliderY = constrain(sliderY + movedY, sliderMinY, sliderMaxY);
+    brightnessLevel = constrain((1 - (sliderY - sliderMinY) / (sliderMaxY - sliderMinY)) * 5, 0, 5);
+    currentImg = brightnessLevel > 0.1 ? lightonImg : lightoffImg;
   }
   return false;
 }
@@ -202,67 +135,49 @@ function mouseReleased() {
 
 function touchStarted() {
   if (isPlayingVideo) return false;
-
-  if (touches.length > 0) {
-    let t = touches[0];
-    let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
-
-    if (distToSlider < 25) {
-      isDraggingSlider = true;
-      lastTouchY = t.y;
-      return false;
-    }
+  if (touches[0] && dist(touches[0].x, touches[0].y, 25, sliderY + 15) < 25) {
+    isDraggingSlider = true;
+    lastTouchY = touches[0].y;
+    return false;
   }
-
-  this._tapCandidate = true;
-
+  this._tap = true;
   return false;
 }
 
 function touchMoved() {
-  if (isPlayingVideo) return false;
-
-  if (isDraggingSlider && touches.length > 0) {
-    let t = touches[0];
-
-    if (lastTouchY !== null) {
-      let dy = t.y - lastTouchY;
-      sliderY += dy;
-      sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
-      updateBrightness();
+  if (isDraggingSlider && !isPlayingVideo && touches[0]) {
+    if (lastTouchY) {
+      sliderY = constrain(sliderY + touches[0].y - lastTouchY, sliderMinY, sliderMaxY);
+      brightnessLevel = constrain((1 - (sliderY - sliderMinY) / (sliderMaxY - sliderMinY)) * 5, 0, 5);
+      currentImg = brightnessLevel > 0.1 ? lightonImg : lightoffImg;
     }
-
-    lastTouchY = t.y;
+    lastTouchY = touches[0].y;
   }
-
-  this._tapCandidate = false;
-
+  this._tap = false;
   return false;
 }
 
 function touchEnded() {
   if (isPlayingVideo) return false;
-
   isDraggingSlider = false;
   lastTouchY = null;
-
-  if (this._tapCandidate) {
-    toggleImage();
-  }
-
-  this._tapCandidate = false;
-
+  if (this._tap) toggleImage();
+  this._tap = false;
   return false;
 }
 
 function toggleImage() {
-  touchCount++;
-
-  if (touchCount === 100) {
-    playVideo();
+  if (++touchCount === 100) {
+    isPlayingVideo = true;
+    videoElement.style.display = 'block';
+    videoElement.currentTime = 0;
+    videoElement.play().catch(() => {
+      isPlayingVideo = false;
+      videoElement.style.display = 'none';
+    });
     return;
   }
-
+  
   if (currentImg === lightonImg) {
     currentImg = lightoffImg;
     savedBrightnessLevel = brightnessLevel;
@@ -270,38 +185,9 @@ function toggleImage() {
     sliderY = sliderMaxY;
   } else {
     currentImg = lightonImg;
-    brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
-    let normalizedBrightness = brightnessLevel / 5;
-    sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
+    brightnessLevel = savedBrightnessLevel || 2.5;
+    sliderY = sliderMaxY - (brightnessLevel / 5) * (sliderMaxY - sliderMinY);
   }
-}
-
-function playVideo() {
-  isPlayingVideo = true;
-  videoElement.style.display = 'block';
-  videoElement.currentTime = 0;
-
-  videoElement.play().catch(err => {
-    console.error('Video playback failed:', err);
-    resetAfterVideo();
-  });
-}
-
-function onVideoEnded() {
-  resetAfterVideo();
-}
-
-function resetAfterVideo() {
-  isPlayingVideo = false;
-  videoElement.style.display = 'none';
-  videoElement.pause();
-  videoElement.currentTime = 0;
-
-  touchCount = 0;
-  currentImg = lightoffImg;
-  brightnessLevel = 0;
-  savedBrightnessLevel = 0;
-  sliderY = sliderMaxY;
 }
 
 function windowResized() {
