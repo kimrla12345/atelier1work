@@ -12,6 +12,14 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
+let motionButton = null;
+let motionPermissionRequested = false;
+
+let shakeThreshold = 12; // 민감도 조절 (작을수록 더 쉽게 반응)
+let lastShakeTimestamp = 0;
+let shakeOnDuration = 2000; // ms
+let shakeTimeout = null;
+
 function preload() {
   img1 = loadImage('lighton.jpg');
   img2 = loadImage('lightoff.jpg');
@@ -49,9 +57,9 @@ function setup() {
   if (typeof DeviceMotionEvent !== 'undefined' &&
       typeof DeviceMotionEvent.requestPermission === 'function') {
 
-    let button = document.createElement("button");
-    button.innerHTML = "Enable Motion";
-    Object.assign(button.style, {
+    motionButton = document.createElement("button");
+    motionButton.innerHTML = "Enable Motion";
+    Object.assign(motionButton.style, {
       position: "absolute",
       top: "20px",
       right: "20px",
@@ -61,21 +69,25 @@ function setup() {
       borderRadius: "8px"
     });
 
-    button.onclick = function () {
+    motionButton.onclick = function () {
+      if (motionPermissionRequested) return;
+      motionPermissionRequested = true;
       DeviceMotionEvent.requestPermission().then(state => {
         if (state === "granted") {
           console.log("Motion permission granted");
-          document.body.removeChild(button);
+          if (motionButton && motionButton.parentNode) motionButton.parentNode.removeChild(motionButton);
         } else {
           alert("Motion access denied");
         }
+      }).catch(err => {
+        console.warn("Motion request failed:", err);
       });
     };
 
-    document.body.appendChild(button);
+    document.body.appendChild(motionButton);
   }
 
-  window.addEventListener("devicemotion", handleShake);
+  window.addEventListener("devicemotion", handleShake, true);
 }
 
 function draw() {
@@ -101,10 +113,8 @@ function draw() {
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
-
     let lightX = width / 1.8 + 100;
     let lightY = height / 2;
-
     for (let r = radius; r > 0; r -= 10) {
       let alpha = map(r, 0, radius, brightness, 0);
       noStroke();
@@ -125,7 +135,6 @@ function drawSlider() {
   stroke(100);
   strokeWeight(2);
   line(25, sliderMinY, 25, height - 50);
-
   fill(255, 255, 100);
   noStroke();
   circle(25, sliderY + sliderHeight / 2, 16);
@@ -134,7 +143,6 @@ function drawSlider() {
 function updateBrightness() {
   let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY));
   brightnessLevel = constrain(normalizedPos * 5, 0, 5);
-
   if (brightnessLevel > 0.1) {
     currentImg = img1;
   } else {
@@ -144,19 +152,16 @@ function updateBrightness() {
 
 function mousePressed() {
   if (isPlayingVideo) return false;
-
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
   }
-
   toggleImage();
   return false;
 }
 
 function mouseDragged() {
   if (isPlayingVideo) return false;
-
   if (isDraggingSlider) {
     sliderY += movedY;
     sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
@@ -172,26 +177,21 @@ function mouseReleased() {
 
 function touchStarted() {
   if (isPlayingVideo) return false;
-
   if (touches.length > 0) {
     let t = touches[0];
     let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
-
     if (distToSlider < 25) {
       isDraggingSlider = true;
       lastTouchY = t.y;
       return false;
     }
   }
-
   this._tapCandidate = true;
-
   return false;
 }
 
 function touchMoved() {
   if (isPlayingVideo) return false;
-
   if (isDraggingSlider && touches.length > 0) {
     let t = touches[0];
     if (lastTouchY !== null) {
@@ -202,33 +202,27 @@ function touchMoved() {
     }
     lastTouchY = t.y;
   }
-
   this._tapCandidate = false;
   return false;
 }
 
 function touchEnded() {
   if (isPlayingVideo) return false;
-
   isDraggingSlider = false;
   lastTouchY = null;
-
   if (this._tapCandidate) {
     toggleImage();
   }
-
   this._tapCandidate = false;
   return false;
 }
 
 function toggleImage() {
   touchCount++;
-
   if (touchCount === 100) {
     playVideo();
     return;
   }
-
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel;
@@ -246,7 +240,6 @@ function playVideo() {
   isPlayingVideo = true;
   videoElement.style.display = 'block';
   videoElement.currentTime = 0;
-
   videoElement.play().catch(err => {
     console.error('Video playback failed:', err);
     resetAfterVideo();
@@ -262,7 +255,6 @@ function resetAfterVideo() {
   videoElement.style.display = 'none';
   videoElement.pause();
   videoElement.currentTime = 0;
-
   touchCount = 0;
   currentImg = img2;
   brightnessLevel = 0;
@@ -275,28 +267,33 @@ function windowResized() {
   sliderMaxY = height - 50 - sliderHeight;
 }
 
-let shakeCooldown = false;
-let shakeTimer = null;
-
 function handleShake(event) {
   if (isPlayingVideo) return;
 
-  let ax = event.acceleration.x || 0;
-  let ay = event.acceleration.y || 0;
-  let az = event.acceleration.z || 0;
+  let acc = event.acceleration;
+  if (!acc || (acc.x === null && acc.y === null && acc.z === null)) {
+    acc = event.accelerationIncludingGravity || { x: 0, y: 0, z: 0 };
+  }
+  let ax = acc.x || 0;
+  let ay = acc.y || 0;
+  let az = acc.z || 0;
 
-  let power = abs(ax) + abs(ay) + abs(az);
+  let magnitude = Math.sqrt(ax * ax + ay * ay + az * az);
 
-  if (power > 35 && !shakeCooldown) {
-    shakeCooldown = true;
-
+  if (magnitude > shakeThreshold) {
+    lastShakeTimestamp = Date.now();
     currentImg = img1;
     brightnessLevel = 2.5;
 
-    clearTimeout(shakeTimer);
-    shakeTimer = setTimeout(() => {
-      currentImg = img2;
-      shakeCooldown = false;
-    }, 2000);
+    if (shakeTimeout) clearTimeout(shakeTimeout);
+    shakeTimeout = setTimeout(() => {
+      if (Date.now() - lastShakeTimestamp >= shakeOnDuration) {
+        if (brightnessLevel > 0.1) {
+          currentImg = img1;
+        } else {
+          currentImg = img2;
+        }
+      }
+    }, shakeOnDuration);
   }
 }
