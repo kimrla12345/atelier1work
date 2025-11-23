@@ -12,7 +12,9 @@ let videoElement;
 let isPlayingVideo = false;
 let isShaking = false;
 let shakeTimer = null;
-
+let permissionGranted = false;
+let lastShakeTime = 0;
+let shakeThreshold = 15;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -53,10 +55,78 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
+  createPermissionButton();
+  
+  if (window.DeviceMotionEvent) {
+    window.addEventListener('devicemotion', handleMotion);
+  }
+}
+
+function createPermissionButton() {
   if (typeof DeviceMotionEvent !== 'undefined' &&
       typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission().catch(() => {});
+    let button = createButton('Enable Motion Sensor');
+    button.style('position', 'fixed');
+    button.style('top', '10px');
+    button.style('right', '10px');
+    button.style('z-index', '2000');
+    button.style('padding', '10px 20px');
+    button.style('background', '#32B8C6');
+    button.style('color', 'white');
+    button.style('border', 'none');
+    button.style('border-radius', '8px');
+    button.style('font-size', '14px');
+    
+    button.mousePressed(() => {
+      DeviceMotionEvent.requestPermission()
+        .then(response => {
+          if (response === 'granted') {
+            permissionGranted = true;
+            button.remove();
+          }
+        })
+        .catch(console.error);
+    });
+  } else {
+    permissionGranted = true;
   }
+}
+
+function handleMotion(event) {
+  if (isPlayingVideo || !permissionGranted) return;
+  
+  const acc = event.accelerationIncludingGravity;
+  
+  if (!acc || !acc.x || !acc.y || !acc.z) return;
+  
+  const acceleration = Math.sqrt(
+    acc.x * acc.x + 
+    acc.y * acc.y + 
+    acc.z * acc.z
+  );
+  
+  const now = Date.now();
+  if (acceleration > shakeThreshold && now - lastShakeTime > 500) {
+    lastShakeTime = now;
+    handleShake();
+  }
+}
+
+function handleShake() {
+  isShaking = true;
+  currentImg = img1;
+  
+  if (shakeTimer) clearTimeout(shakeTimer);
+  
+  shakeTimer = setTimeout(() => {
+    isShaking = false;
+    
+    if (brightnessLevel > 0.1) {
+      currentImg = img1;
+    } else {
+      currentImg = img2;
+    }
+  }, 300);
 }
 
 function draw() {
@@ -264,21 +334,6 @@ function windowResized() {
   sliderMaxY = height - 50 - sliderHeight;
 }
 
-
 function deviceShaken() {
-  if (isPlayingVideo) return; 
-
-  isShaking = true;
-  currentImg = img1; 
-
-  if (shakeTimer) clearTimeout(shakeTimer);
-
-  shakeTimer = setTimeout(() => {
-    isShaking = false;
-    if (brightnessLevel > 0.1) {
-      currentImg = img1;
-    } else {
-      currentImg = img2;
-    }
-  }, 300);
+  handleShake();
 }
