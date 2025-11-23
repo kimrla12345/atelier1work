@@ -12,6 +12,7 @@ let videoElement;
 let isPlayingVideo = false;
 let isShaking = false;
 let shakeTimer = null;
+let permissionRequested = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -25,13 +26,10 @@ function setup() {
   c.elt.style.touchAction = "none";
 
   videoElement = document.createElement('video');
-
   videoElement.setAttribute('playsinline', 'playsinline');
   videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
   videoElement.playsInline = true;
-
   videoElement.src = 'lightbroke.mp4';
-
   videoElement.style.display = 'none';
   videoElement.style.position = 'fixed';
   videoElement.style.top = '0';
@@ -44,20 +42,25 @@ function setup() {
   videoElement.style.backgroundColor = '#000';
 
   document.body.appendChild(videoElement);
-
   videoElement.addEventListener('ended', onVideoEnded);
 
   currentImg = img2;
-
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+}
 
+function requestPermission() {
+  if (permissionRequested) return;
+  permissionRequested = true;
+  
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission().then(response => {
-      if (response === 'granted') {
-        setShakeThreshold(30);
-      }
-    }).catch(console.error);
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          setShakeThreshold(30);
+        }
+      })
+      .catch(console.error);
   } else {
     setShakeThreshold(30);
   }
@@ -132,6 +135,8 @@ function updateBrightness() {
 }
 
 function mousePressed() {
+  requestPermission();
+  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -160,6 +165,8 @@ function mouseReleased() {
 }
 
 function touchStarted() {
+  requestPermission();
+  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
