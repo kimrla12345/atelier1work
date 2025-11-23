@@ -13,6 +13,7 @@ let isPlayingVideo = false;
 let lastShakeTime = 0;
 let lastAcc = { x: 0, y: 0, z: 0 };
 let permissionStatus = 'waiting';
+let permissionRequested = false;
 
 function preload() {
   lightonImg = loadImage('lighton.jpg');  
@@ -40,6 +41,21 @@ function setup() {
   currentImg = lightoffImg;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+  
+  // 네이티브 이벤트로 권한 요청
+  window.addEventListener('touchstart', function() {
+    if (!permissionRequested) {
+      permissionRequested = true;
+      requestPermission();
+    }
+  }, { once: true, passive: false });
+  
+  window.addEventListener('click', function() {
+    if (!permissionRequested) {
+      permissionRequested = true;
+      requestPermission();
+    }
+  }, { once: true });
 }
 
 function requestPermission() {
@@ -117,14 +133,12 @@ function draw() {
   text('Click: ' + touchCount, width/2, 20);
   
   // 권한 상태 표시
-  fill(255, 0, 0);
+  fill(255, 255, 0);
   textSize(14);
   text('Permission: ' + permissionStatus, width/2, 50);
 }
 
 function mousePressed() {
-  requestPermission();
-  
   if (isPlayingVideo) return false;
   if (dist(mouseX, mouseY, 25, sliderY + 15) < 25) {
     isDraggingSlider = true;
@@ -149,8 +163,6 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  requestPermission();
-  
   if (isPlayingVideo) return false;
   if (touches[0] && dist(touches[0].x, touches[0].y, 25, sliderY + 15) < 25) {
     isDraggingSlider = true;
