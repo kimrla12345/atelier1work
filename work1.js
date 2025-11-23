@@ -21,7 +21,6 @@ function preload() {
 function setup() {
   let c = createCanvas(windowWidth, windowHeight);
   c.parent('canvasWrap');
-
   c.elt.style.touchAction = "none";
 
   videoElement = document.createElement('video');
@@ -48,14 +47,17 @@ function setup() {
   sliderY = sliderMaxY;
 
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission().catch(() => {});
+    canvas.touchStarted(function() {
+      DeviceMotionEvent.requestPermission().catch(console.error);
+      return false;
+    });
   }
+
+  setShakeThreshold(30);
 }
 
 function draw() {
-  if (isPlayingVideo) {
-    return;
-  }
+  if (isPlayingVideo) return;
 
   background(0);
 
@@ -77,7 +79,6 @@ function draw() {
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
-
     let lightX = width / 1.8 + 100;
     let lightY = height / 2;
 
@@ -101,7 +102,6 @@ function drawSlider() {
   stroke(100);
   strokeWeight(2);
   line(25, sliderMinY, 25, height - 50);
-
   fill(255, 255, 100);
   noStroke();
   circle(25, sliderY + sliderHeight / 2, 16);
@@ -161,7 +161,6 @@ function touchStarted() {
   }
 
   this._tapCandidate = true;
-
   return false;
 }
 
@@ -182,7 +181,6 @@ function touchMoved() {
   }
 
   this._tapCandidate = false;
-
   return false;
 }
 
@@ -197,7 +195,6 @@ function touchEnded() {
   }
 
   this._tapCandidate = false;
-
   return false;
 }
 
@@ -226,7 +223,6 @@ function playVideo() {
   isPlayingVideo = true;
   videoElement.style.display = 'block';
   videoElement.currentTime = 0;
-
   videoElement.play().catch(err => {
     console.error('Video playback failed:', err);
     resetAfterVideo();
@@ -242,7 +238,6 @@ function resetAfterVideo() {
   videoElement.style.display = 'none';
   videoElement.pause();
   videoElement.currentTime = 0;
-
   touchCount = 0;
   currentImg = img2;
   brightnessLevel = 0;
