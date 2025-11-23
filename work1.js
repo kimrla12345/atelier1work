@@ -21,45 +21,56 @@ function preload() {
 function setup() {
   let c = createCanvas(windowWidth, windowHeight);
   c.parent('canvasWrap');
+
   c.elt.style.touchAction = "none";
 
   videoElement = document.createElement('video');
-  videoElement.setAttribute('playsinline', '');
-  videoElement.setAttribute('webkit-playsinline', '');
+
+  videoElement.setAttribute('playsinline', 'playsinline');
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
   videoElement.playsInline = true;
+
   videoElement.src = 'lightbroke.mp4';
+
   videoElement.style.display = 'none';
   videoElement.style.position = 'fixed';
-  videoElement.style.top = '50%';
-  videoElement.style.left = '50%';
-  videoElement.style.transform = 'translate(-50%, -50%)';
-  videoElement.style.width = '100%';
-  videoElement.style.height = '100%';
-  videoElement.style.objectFit = 'contain';
+  videoElement.style.top = '0';
+  videoElement.style.left = '0';
+  videoElement.style.width = '100vw';
+  videoElement.style.height = '100vh';
+  videoElement.style.objectFit = 'cover';
+  videoElement.style.objectPosition = 'center';
   videoElement.style.zIndex = '1000';
   videoElement.style.backgroundColor = '#000';
 
   document.body.appendChild(videoElement);
+
   videoElement.addEventListener('ended', onVideoEnded);
 
   currentImg = img2;
+
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    canvas.touchStarted(function() {
-      DeviceMotionEvent.requestPermission().catch(console.error);
-      return false;
-    });
+    DeviceMotionEvent.requestPermission().then(response => {
+      if (response === 'granted') {
+        setShakeThreshold(30);
+      }
+    }).catch(console.error);
+  } else {
+    setShakeThreshold(30);
   }
-
-  setShakeThreshold(30);
 }
 
 function draw() {
-  if (isPlayingVideo) return;
+  if (isPlayingVideo) {
+    return;
+  }
 
   background(0);
+
+  if (isShaking) currentImg = img1;
 
   let ar_img = currentImg.width / currentImg.height;
   let ar_win = width / height;
@@ -79,6 +90,7 @@ function draw() {
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
+
     let lightX = width / 1.8 + 100;
     let lightY = height / 2;
 
@@ -102,6 +114,7 @@ function drawSlider() {
   stroke(100);
   strokeWeight(2);
   line(25, sliderMinY, 25, height - 50);
+
   fill(255, 255, 100);
   noStroke();
   circle(25, sliderY + sliderHeight / 2, 16);
@@ -161,6 +174,7 @@ function touchStarted() {
   }
 
   this._tapCandidate = true;
+
   return false;
 }
 
@@ -181,6 +195,7 @@ function touchMoved() {
   }
 
   this._tapCandidate = false;
+
   return false;
 }
 
@@ -195,6 +210,7 @@ function touchEnded() {
   }
 
   this._tapCandidate = false;
+
   return false;
 }
 
@@ -223,6 +239,7 @@ function playVideo() {
   isPlayingVideo = true;
   videoElement.style.display = 'block';
   videoElement.currentTime = 0;
+
   videoElement.play().catch(err => {
     console.error('Video playback failed:', err);
     resetAfterVideo();
@@ -238,6 +255,7 @@ function resetAfterVideo() {
   videoElement.style.display = 'none';
   videoElement.pause();
   videoElement.currentTime = 0;
+
   touchCount = 0;
   currentImg = img2;
   brightnessLevel = 0;
