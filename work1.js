@@ -12,7 +12,7 @@ let videoElement;
 let isPlayingVideo = false;
 let isShaking = false;
 let shakeTimer = null;
-let permissionRequested = false;
+let motionPermissionGranted = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -49,20 +49,22 @@ function setup() {
   sliderY = sliderMaxY;
 }
 
-function requestPermission() {
-  if (permissionRequested) return;
-  permissionRequested = true;
+async function requestMotionPermission() {
+  if (motionPermissionGranted) return;
   
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          setShakeThreshold(30);
-        }
-      })
-      .catch(console.error);
+    try {
+      const response = await DeviceMotionEvent.requestPermission();
+      if (response === 'granted') {
+        motionPermissionGranted = true;
+        setShakeThreshold(25);
+      }
+    } catch (error) {
+      console.error('Permission request failed:', error);
+    }
   } else {
-    setShakeThreshold(30);
+    motionPermissionGranted = true;
+    setShakeThreshold(25);
   }
 }
 
@@ -72,8 +74,6 @@ function draw() {
   }
 
   background(0);
-
-  if (isShaking) currentImg = img1;
 
   let ar_img = currentImg.width / currentImg.height;
   let ar_win = width / height;
@@ -135,7 +135,7 @@ function updateBrightness() {
 }
 
 function mousePressed() {
-  requestPermission();
+  requestMotionPermission();
   
   if (isPlayingVideo) return false;
 
@@ -165,7 +165,7 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  requestPermission();
+  requestMotionPermission();
   
   if (isPlayingVideo) return false;
 
@@ -276,7 +276,7 @@ function windowResized() {
 }
 
 function deviceShaken() {
-  if (isPlayingVideo || isShaking) return;
+  if (!motionPermissionGranted || isPlayingVideo || isShaking) return;
   
   isShaking = true;
   currentImg = img1;
