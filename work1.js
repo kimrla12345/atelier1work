@@ -80,7 +80,7 @@ function handleShake(event) {
   
   const now = Date.now();
   
-  if (totalDelta > 15 && now - lastShakeTime > 300) {
+  if (totalDelta > 12 && now - lastShakeTime > 250) {
     lastShakeTime = now;
     
     if (currentImg === lightoffImg) {
