@@ -12,7 +12,9 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-let permissionButton;
+// 마이크 입력 관련 p5 객체
+let mic, amplitude;
+let soundThreshold = 0.05; // 소리 감지 기준값 (환경에 맞게 조정)
 
 function preload() {
   img1 = loadImage('lighton.jpg');
@@ -24,6 +26,12 @@ function setup() {
   c.parent('canvasWrap');
 
   c.elt.style.touchAction = "none";
+
+  // 마이크 시작
+  mic = new p5.AudioIn();
+  mic.start();
+  amplitude = new p5.Amplitude();
+  amplitude.setInput(mic);
 
   videoElement = document.createElement('video');
 
@@ -52,95 +60,36 @@ function setup() {
 
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+}
 
-  // iOS 모션 권한 요청 버튼 생성 (필요시만)
-  if (
-    typeof DeviceMotionEvent !== 'undefined' &&
-    typeof DeviceMotionEvent.requestPermission === 'function'
-  ) {
-    permissionButton = createButton('Enable Motion Sensor');
-    permissionButton.style('position', 'fixed');
-    permissionButton.style('top', '10px');
-    permissionButton.style('right', '10px');
-    permissionButton.style('z-index', '9999');
-    permissionButton.style('padding', '12px 20px');
-    permissionButton.style('font-size', '18px');
-    permissionButton.style('background', '#ffcc00');
-    permissionButton.style('border', 'none');
-    permissionButton.style('border-radius', '8px');
-    permissionButton.style('box-shadow', '0 2px 6px rgba(0,0,0,0.3)');
-    permissionButton.style('cursor', 'pointer');
-    permissionButton.elt.style.userSelect = 'none';
-
-    permissionButton.mousePressed((event) => {
-      // 버튼 클릭 시 이벤트 캔슬링으로 뒤 터치 방지
-      event.preventDefault();
-      event.stopPropagation();
-
-      requestMotionPermission();
-    });
+function draw() {
+  if (isPlayingVideo) {
+    return;
   }
-}
 
-function requestMotionPermission() {
-  DeviceMotionEvent.requestPermission()
-    .then(response => {
-      if (response === 'granted') {
-        if (permissionButton) {
-          permissionButton.remove();
-          permissionButton = null;
-        }
-        window.addEventListener('devicemotion', detectShake);
-      } else {
-        alert('Motion sensor permission denied. Shake feature disabled.');
-      }
-    })
-    .catch(err => {
-      console.error('Permission request error:', err);
-      alert('Motion sensor permission error.');
-    });
-}
-
-let shakeThreshold = 15;
-let lastShakeTime = 0;
-let shakeCooldown = 1000;
-
-function detectShake(event) {
-  const acc = event.accelerationIncludingGravity;
-  if (!acc) return;
-
-  const accX = acc.x || 0;
-  const accY = acc.y || 0;
-  const accZ = acc.z || 0;
-
-  const totalAcc = Math.sqrt(accX*accX + accY*accY + accZ*accZ);
-
-  const currentTime = millis();
-  if (totalAcc > shakeThreshold && currentTime - lastShakeTime > shakeCooldown) {
-    lastShakeTime = currentTime;
-
-    // 모션으로 이미지 토글하되 터치 카운트는 증가시키지 않음
-    if (currentImg === img2) {
+  // 소리 레벨 감지하여 이미지 전환 (클릭 카운트 증가 없음)
+  let level = amplitude.getLevel();
+  if (level > soundThreshold) {
+    if (currentImg !== img1) {
       currentImg = img1;
+      // brightnessLevel 유지 혹은 기본값 설정
       brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
       let normalizedBrightness = brightnessLevel / 5;
       sliderY = sliderMaxY - normalizedBrightness * (sliderMaxY - sliderMinY);
-    } else if (currentImg === img1) {
+    }
+  } else {
+    if (currentImg !== img2) {
       currentImg = img2;
       savedBrightnessLevel = brightnessLevel;
       brightnessLevel = 0;
       sliderY = sliderMaxY;
     }
   }
-}
-
-function draw() {
-  if (isPlayingVideo) return;
 
   background(0);
 
-  const ar_img = currentImg.width / currentImg.height;
-  const ar_win = width / height;
+  let ar_img = currentImg.width / currentImg.height;
+  let ar_win = width / height;
   let drawW, drawH;
 
   if (ar_img > ar_win) {
@@ -152,17 +101,17 @@ function draw() {
   }
 
   imageMode(CENTER);
-  image(currentImg, width/2, height/2, drawW, drawH);
+  image(currentImg, width / 2, height / 2, drawW, drawH);
 
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
 
-    const lightX = width / 1.8 + 100;
-    const lightY = height / 2;
+    let lightX = width / 1.8 + 100;
+    let lightY = height / 2;
 
     for (let r = radius; r > 0; r -= 10) {
-      const alpha = map(r, 0, radius, brightness, 0);
+      let alpha = map(r, 0, radius, brightness, 0);
       noStroke();
       fill(255, 255, 100, alpha * 0.2);
       circle(lightX, lightY, r * 2);
@@ -174,7 +123,7 @@ function draw() {
   fill(255);
   textAlign(CENTER, TOP);
   textSize(16);
-  text('Click: ' + touchCount, width/2, 20);
+  text('Click: ' + touchCount, width / 2, 20);
 }
 
 function drawSlider() {
@@ -206,6 +155,7 @@ function mousePressed() {
     return false;
   }
 
+  // 클릭 시 이미지 토글 및 클릭 카운트 증가
   toggleImage();
   return false;
 }
@@ -298,7 +248,7 @@ function toggleImage() {
     currentImg = img1;
     brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
     let normalizedBrightness = brightnessLevel / 5;
-    sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
+    sliderY = sliderMaxY - normalizedBrightness * (sliderMaxY - sliderMinY);
   }
 }
 
