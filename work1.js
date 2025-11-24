@@ -12,13 +12,10 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// Shake 변수
-let lastX, lastY, lastZ;
-let shakeEnabled = false;
-let permissionAsked = false;
+let permissionButton; // iOS 모션 권한 버튼
 
 function preload() {
-  img1 = loadImage('lighton.jpg');  
+  img1 = loadImage('lighton.jpg');
   img2 = loadImage('lightoff.jpg');
 }
 
@@ -29,10 +26,13 @@ function setup() {
   c.elt.style.touchAction = "none";
 
   videoElement = document.createElement('video');
-  videoElement.setAttribute('playsinline', 'playsinline');     
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline'); 
-  videoElement.playsInline = true;                             
+
+  videoElement.setAttribute('playsinline', 'playsinline');
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
+  videoElement.playsInline = true;
+
   videoElement.src = 'lightbroke.mp4';
+
   videoElement.style.display = 'none';
   videoElement.style.position = 'fixed';
   videoElement.style.top = '0';
@@ -45,59 +45,72 @@ function setup() {
   videoElement.style.backgroundColor = '#000';
 
   document.body.appendChild(videoElement);
+
   videoElement.addEventListener('ended', onVideoEnded);
 
   currentImg = img2;
+
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
-}
 
-async function askPermission() {
-  if (permissionAsked) return;
-  permissionAsked = true;
-  
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    try {
-      const res = await DeviceMotionEvent.requestPermission();
-      if (res === 'granted') {
-        shakeEnabled = true;
-        window.addEventListener('devicemotion', handleShake);
-      }
-    } catch(err) {
-      console.error(err);
-    }
-  } else {
-    shakeEnabled = true;
-    window.addEventListener('devicemotion', handleShake);
+  // iOS 기기용 모션 권한 요청 버튼 생성
+  if (
+    typeof DeviceMotionEvent !== 'undefined' &&
+    typeof DeviceMotionEvent.requestPermission === 'function'
+  ) {
+    permissionButton = createButton('Enable Motion Sensor');
+    permissionButton.style('position', 'fixed');
+    permissionButton.style('top', '10px');
+    permissionButton.style('right', '10px');
+    permissionButton.style('z-index', '2000');
+    permissionButton.mousePressed(requestMotionPermission);
   }
 }
 
-function handleShake(e) {
-  if (!shakeEnabled || isPlayingVideo) return;
-  
-  const acc = e.accelerationIncludingGravity;
-  if (!acc || acc.x === null) return;
-  
-  const {x, y, z} = acc;
-  
-  if (lastX != null) {
-    const delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
-    
-    if (delta > 20) {
-      if (currentImg === img2) {
-        currentImg = img1;
+function requestMotionPermission() {
+  DeviceMotionEvent.requestPermission()
+    .then(response => {
+      if (response === 'granted') {
+        permissionButton.remove();
+        window.addEventListener('devicemotion', detectShake);
       } else {
-        currentImg = img2;
-        savedBrightnessLevel = brightnessLevel;
-        brightnessLevel = 0;
-        sliderY = sliderMaxY;
+        alert('Motion sensor permission denied. Shake feature disabled.');
       }
+    })
+    .catch(console.error);
+}
+
+let shakeThreshold = 15;
+let lastShakeTime = 0;
+let shakeCooldown = 1000; // 1초 쿨다운
+
+function detectShake(event) {
+  let acc = event.accelerationIncludingGravity;
+  if (!acc) return;
+
+  let accX = acc.x;
+  let accY = acc.y;
+  let accZ = acc.z;
+
+  let totalAcc = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
+
+  let currentTime = millis();
+  if (totalAcc > shakeThreshold && currentTime - lastShakeTime > shakeCooldown) {
+    lastShakeTime = currentTime;
+
+    // 흔들기로 인한 이미지 토글 (clickCount 증가 없음)
+    if (currentImg === img2) {
+      currentImg = img1;
+      brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
+      let normalizedBrightness = brightnessLevel / 5;
+      sliderY = sliderMaxY - normalizedBrightness * (sliderMaxY - sliderMinY);
+    } else if (currentImg === img1) {
+      currentImg = img2;
+      savedBrightnessLevel = brightnessLevel;
+      brightnessLevel = 0;
+      sliderY = sliderMaxY;
     }
   }
-  
-  lastX = x;
-  lastY = y;
-  lastZ = z;
 }
 
 function draw() {
@@ -167,8 +180,6 @@ function updateBrightness() {
 }
 
 function mousePressed() {
-  askPermission();
-  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -197,8 +208,6 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  askPermission();
-  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
