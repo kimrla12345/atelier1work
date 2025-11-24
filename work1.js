@@ -47,18 +47,20 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
-  // iOS 모션 권한 요청 버튼 생성
+  // iOS 모션 권한 요청 버튼 생성 (상단 우측 구석)
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    permissionButton = createButton('Enable Shake Permission');
-    permissionButton.position(width / 2 - 90, height / 2);
-    permissionButton.size(180, 50);
-    permissionButton.style('font-size', '16px');
+    permissionButton = createButton('Enable Shake');
+    permissionButton.position(width - 130, 10);
+    permissionButton.size(120, 40);
+    permissionButton.style('font-size', '14px');
     permissionButton.style('background-color', '#32B8C6');
     permissionButton.style('color', 'white');
     permissionButton.style('border', 'none');
-    permissionButton.style('border-radius', '8px');
+    permissionButton.style('border-radius', '6px');
     permissionButton.style('cursor', 'pointer');
-    permissionButton.style('z-index', '1000');
+    permissionButton.style('z-index', '999');
+    permissionButton.style('position', 'fixed');
+    
     permissionButton.mousePressed(() => {
       DeviceMotionEvent.requestPermission()
         .then(response => {
@@ -67,10 +69,10 @@ function setup() {
             window.addEventListener('devicemotion', handleShake);
             permissionButton.remove();
           } else {
-            alert('Shake permission is required for this feature.');
+            alert('Shake permission denied');
           }
         })
-        .catch(() => alert('Permission request failed.'));
+        .catch(() => alert('Permission request failed'));
     });
   } else {
     // iOS 미지원, 일반 브라우저용
