@@ -50,28 +50,55 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
-  // 권한 요청 버튼 생성 (웹사이트 외부)
+  // 권한 요청 버튼 (작고, 하단 우측)
   const btn = document.createElement('button');
-  btn.id = 'requestPermissionBtn';
-  btn.innerText = 'Enable Shake Motion';
-  btn.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;padding:12px 20px;background:#FF5722;color:white;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  btn.id = 'shakeBtn';
+  btn.innerText = '🔔';
+  btn.style.cssText = `
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    background: #FF5722;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    font-size: 24px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  `;
   document.body.appendChild(btn);
 
-  // 버튼 클릭 시 권한 요청
-  btn.addEventListener('click', async () => {
+  // 클릭 및 터치 이벤트 모두 처리
+  const handlePermission = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      const res = await DeviceMotionEvent.requestPermission();
-      if (res === 'granted') {
-        startShake();
-        btn.remove(); // 버튼 제거
-      } else {
-        alert('Permission denied');
+      try {
+        const res = await DeviceMotionEvent.requestPermission();
+        if (res === 'granted') {
+          startShake();
+          btn.remove();
+        } else {
+          alert('Permission denied');
+        }
+      } catch(err) {
+        console.error(err);
       }
     } else {
       startShake();
       btn.remove();
     }
-  });
+  };
+  
+  btn.addEventListener('click', handlePermission);
+  btn.addEventListener('touchend', handlePermission);
 }
 
 // Shake 시작
