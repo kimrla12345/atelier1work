@@ -1,100 +1,152 @@
-let permissionGranted = false;
-let lastShakeTime = 0;
-let shakeCooldown = 500; // 0.5초
-let shakeThreshold = 8;  // 아주 약한 흔들림에도 반응함
+let img1, img2, currentImg;
+let sliderY = 0;
+let sliderHeight = 30;
+let brightnessLevel = 0;
+let isDraggingSlider = false;
+let sliderMinY = 50;
+let sliderMaxY = 0;
+let savedBrightnessLevel = 0;
+let touchCount = 0;
+let lastTouchY = null;
+let videoElement;
+let isPlayingVideo = false;
 
-let lightOnImg, lightOffImg;
-let currentLight = "off";
-let clickCount = 0;
+// --- Shake & Permission 변수
+let lastShakeTime = 0;
+let shakeCooldown = 300;
+let shakeThreshold = 12;
+let permissionGranted = false;
 
 function preload() {
-  lightOnImg = loadImage("lighton.jpg");
-  lightOffImg = loadImage("lightoff.jpg");
+  img1 = loadImage('lighton.jpg');  
+  img2 = loadImage('lightoff.jpg');
 }
 
 function setup() {
-  createCanvas(windowWidth, windowHeight);
+  let c = createCanvas(windowWidth, windowHeight);
+  c.parent('canvasWrap');
+  c.elt.style.touchAction = "none";
 
-  // iOS에서 반드시 필요한 버튼
-  createMotionButton();
-}
+  // --- iOS Motion Permission 버튼
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    let motionBtn = createButton("Enable Motion");
+    motionBtn.style("font-size", "18px");
+    motionBtn.style("padding", "10px 15px");
+    motionBtn.position(20, 20);
 
-function draw() {
-  background(255);
-
-  if (currentLight === "on") {
-    image(lightOnImg, 0, 0, width, height);
-  } else {
-    image(lightOffImg, 0, 0, width, height);
-  }
-}
-
-// -----------------------------
-// ★ iOS 권한 버튼 생성
-// -----------------------------
-function createMotionButton() {
-  let btn = createButton("Enable Motion");
-  btn.style("font-size", "20px");
-  btn.style("padding", "12px 20px");
-  btn.position(20, 20);
-
-  btn.mousePressed(async () => {
-    if (typeof DeviceMotionEvent.requestPermission === "function") {
+    motionBtn.mousePressed(async () => {
       try {
         const response = await DeviceMotionEvent.requestPermission();
-        if (response === "granted") {
+        if (response === 'granted') {
           permissionGranted = true;
           window.addEventListener("devicemotion", handleShake);
-          btn.remove(); // 버튼 제거
+          motionBtn.remove();
+        } else {
+          alert("Motion permission denied");
         }
-      } catch (err) {
-        console.log("Permission error:", err);
+      } catch(err) {
+        console.log("Motion permission error:", err);
       }
-    } else {
-      // Android 등 iOS 이외 기기
-      permissionGranted = true;
-      window.addEventListener("devicemotion", handleShake);
-      btn.remove();
-    }
-  });
-}
-
-// -----------------------------
-// ★ 흔들림 감지
-// -----------------------------
-function handleShake(event) {
-  if (!permissionGranted) return;
-
-  let ax = event.accelerationIncludingGravity.x;
-  let ay = event.accelerationIncludingGravity.y;
-  let az = event.accelerationIncludingGravity.z;
-
-  let total = abs(ax) + abs(ay) + abs(az);
-
-  if (total > shakeThreshold) {
-    let now = millis();
-    if (now - lastShakeTime > shakeCooldown) {
-      lastShakeTime = now;
-      toggleLightByShake();
-    }
-  }
-}
-
-// -----------------------------
-// ★ 흔들어서 켜고 끄기
-// -----------------------------
-function toggleLightByShake() {
-  if (currentLight === "off") {
-    currentLight = "on";
-    // 흔들어서 켜졌을 때는 클릭 count 증가 없음
+    });
   } else {
-    currentLight = "off";
+    permissionGranted = true;
+    window.addEventListener("devicemotion", handleShake);
+  }
+
+  videoElement = document.createElement('video');
+  videoElement.setAttribute('playsinline', 'playsinline');
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
+  videoElement.playsInline = true;
+  videoElement.src = 'lightbroke.mp4';
+  videoElement.style.display = 'none';
+  videoElement.style.position = 'fixed';
+  videoElement.style.top = '0';
+  videoElement.style.left = '0';
+  videoElement.style.width = '100vw';
+  videoElement.style.height = '100vh';
+  videoElement.style.objectFit = 'cover';
+  videoElement.style.objectPosition = 'center';
+  videoElement.style.zIndex = '1000';
+  videoElement.style.backgroundColor = '#000';
+  document.body.appendChild(videoElement);
+  videoElement.addEventListener('ended', onVideoEnded);
+
+  currentImg = img2;
+  sliderMaxY = height - 50 - sliderHeight;
+  sliderY = sliderMaxY;
+}
+
+// --- Shake 이벤트 처리
+function handleShake(event) {
+  if (!permissionGranted || isPlayingVideo) return;
+  let acc = event.accelerationIncludingGravity;
+  if (!acc) return;
+  let delta = Math.abs(acc.x) + Math.abs(acc.y) + Math.abs(acc.z);
+  let now = millis();
+  if (delta > shakeThreshold && now - lastShakeTime > shakeCooldown) {
+    lastShakeTime = now;
+    if (currentImg === img2) {
+      currentImg = img1;
+    } else if (currentImg === img1) {
+      currentImg = img2;
+      savedBrightnessLevel = brightnessLevel;
+      brightnessLevel = 0;
+      sliderY = sliderMaxY;
+    }
   }
 }
 
-// -----------------------------
-// ★ 기존의 클릭 방식 조명 켜기(너의 기존 로직 유지)
-// -----------------------------
-function mousePressed() {
-  clickCount++;
+// --- 여기부터 기존 draw(), updateBrightness(), mouse/touch, toggleImage(), playVideo() 등 전부 그대로 유지
+function draw() {
+  if (isPlayingVideo) { return; }
+  background(0);
+  let ar_img = currentImg.width / currentImg.height;
+  let ar_win = width / height;
+  let drawW, drawH;
+  if (ar_img > ar_win) { drawH = height; drawW = height * ar_img; } 
+  else { drawW = width; drawH = width / ar_img; }
+  imageMode(CENTER);
+  image(currentImg, width/2, height/2, drawW, drawH);
+
+  if (currentImg === img1 && brightnessLevel > 0) {
+    let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
+    let radius = map(brightnessLevel, 0.1, 5, 50, 400);
+    let lightX = width / 1.8 + 100;
+    let lightY = height / 2;
+    for (let r = radius; r > 0; r -= 10) {
+      let alpha = map(r, 0, radius, brightness, 0);
+      noStroke();
+      fill(255, 255, 100, alpha * 0.2);
+      circle(lightX, lightY, r * 2);
+    }
+  }
+  drawSlider();
+  fill(255); textAlign(CENTER, TOP); textSize(16);
+  text('Click: ' + touchCount, width/2, 20);
 }
+
+function drawSlider() { stroke(100); strokeWeight(2); line(25, sliderMinY, 25, height - 50); fill(255, 255, 100); noStroke(); circle(25, sliderY + sliderHeight / 2, 16); }
+
+function updateBrightness() { let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY)); brightnessLevel = constrain(normalizedPos * 5, 0, 5); if (brightnessLevel > 0.1) { currentImg = img1; } else { currentImg = img2; } }
+
+function mousePressed() { if (isPlayingVideo) return false; if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) { isDraggingSlider = true; return false; } toggleImage(); return false; }
+
+function mouseDragged() { if (isPlayingVideo) return false; if (isDraggingSlider) { sliderY += movedY; sliderY = constrain(sliderY, sliderMinY, sliderMaxY); updateBrightness(); } return false; }
+
+function mouseReleased() { isDraggingSlider = false; return false; }
+
+function touchStarted() { if (isPlayingVideo) return false; if (touches.length > 0) { let t = touches[0]; let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2); if (distToSlider < 25) { isDraggingSlider = true; lastTouchY = t.y; return false; } } this._tapCandidate = true; return false; }
+
+function touchMoved() { if (isPlayingVideo) return false; if (isDraggingSlider && touches.length > 0) { let t = touches[0]; if (lastTouchY !== null) { let dy = t.y - lastTouchY; sliderY += dy; sliderY = constrain(sliderY, sliderMinY, sliderMaxY); updateBrightness(); } lastTouchY = t.y; } this._tapCandidate = false; return false; }
+
+function touchEnded() { if (isPlayingVideo) return false; isDraggingSlider = false; lastTouchY = null; if (this._tapCandidate) { toggleImage(); } this._tapCandidate = false; return false; }
+
+function toggleImage() { touchCount++; if (touchCount === 100) { playVideo(); return; } if (currentImg === img1) { currentImg = img2; savedBrightnessLevel = brightnessLevel; brightnessLevel = 0; sliderY = sliderMaxY; } else { currentImg = img1; brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5; let normalizedBrightness = brightnessLevel / 5; sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY)); } }
+
+function playVideo() { isPlayingVideo = true; videoElement.style.display = 'block'; videoElement.currentTime = 0; videoElement.play().catch(err => { console.error('Video playback failed:', err); resetAfterVideo(); }); }
+
+function onVideoEnded() { resetAfterVideo(); }
+
+function resetAfterVideo() { isPlayingVideo = false; videoElement.style.display = 'none'; videoElement.pause(); videoElement.currentTime = 0; touchCount = 0; currentImg = img2; brightnessLevel = 0; savedBrightnessLevel = 0; sliderY = sliderMaxY; }
+
+function windowResized() { resizeCanvas(windowWidth, windowHeight); sliderMaxY = height - 50 - sliderHeight; }
