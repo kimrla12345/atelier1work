@@ -63,25 +63,39 @@ function setup() {
       typeof DeviceMotionEvent.requestPermission !== 'function') {
     window.addEventListener('devicemotion', handleMotion);
     motionPermissionGranted = true;
+    console.log('Android: Motion enabled automatically');
   }
 }
 
+=
 function requestMotionPermission() {
+  console.log('Requesting motion permission...');
+  
   if (typeof DeviceMotionEvent !== 'undefined' &&
       typeof DeviceMotionEvent.requestPermission === 'function') {
+    
+    console.log('iOS detected, calling requestPermission()');
+    
     DeviceMotionEvent.requestPermission()
       .then(response => {
+        console.log('Permission response:', response);
+        
         if (response === 'granted') {
           window.addEventListener('devicemotion', handleMotion);
           motionPermissionGranted = true;
-          console.log('Motion permission granted!');
+          console.log('✅ Motion permission GRANTED!');
+          alert('흔들기 기능이 활성화되었습니다!');
         } else {
-          console.log('Motion permission denied');
+          console.log('❌ Motion permission DENIED');
+          alert('권한이 거부되었습니다. Safari를 완전히 종료하고 다시 시도해주세요.');
         }
       })
       .catch(err => {
-        console.error('Motion permission error:', err);
+        console.error('❌ Permission request ERROR:', err);
+        alert('오류: ' + err.message);
       });
+  } else {
+    console.log('Not iOS 13+ or DeviceMotionEvent not supported');
   }
 }
 
@@ -108,7 +122,7 @@ function handleMotion(event) {
 }
 
 function onShakeDetected() {
-  console.log('Shake detected!');
+  console.log('🔔 Shake detected!');
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel;
@@ -191,9 +205,10 @@ function updateBrightness() {
 function mousePressed() {
   if (isPlayingVideo) return false;
 
-  // ⭐ 권한 요청을 맨 앞에 배치 (슬라이더 체크보다 먼저)
+  // ⭐ iOS 권한 요청 (최우선)
   if (!permissionRequested && typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission === 'function') {
+    console.log('First click detected, requesting permission');
     requestMotionPermission();
     permissionRequested = true;
   }
@@ -226,9 +241,10 @@ function mouseReleased() {
 function touchStarted() {
   if (isPlayingVideo) return false;
 
-  // ⭐ 권한 요청을 맨 앞에 배치 (슬라이더 체크보다 먼저)
+  // ⭐ iOS 권한 요청 (최우선)
   if (!permissionRequested && typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission === 'function') {
+    console.log('First touch detected, requesting permission');
     requestMotionPermission();
     permissionRequested = true;
   }
