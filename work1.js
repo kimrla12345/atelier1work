@@ -12,10 +12,9 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// Shake 관련 변수
-let lastShakeTime = 0;
-let lastAcc = { x: 0, y: 0, z: 0 };
-let permissionGranted = false;
+// Shake 변수
+let lastX, lastY, lastZ;
+let shakeEnabled = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -50,55 +49,65 @@ function setup() {
   currentImg = img2;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+
+  // 권한 요청 버튼 생성 (웹사이트 외부)
+  const btn = document.createElement('button');
+  btn.id = 'requestPermissionBtn';
+  btn.innerText = 'Enable Shake Motion';
+  btn.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;padding:12px 20px;background:#FF5722;color:white;border:none;border-radius:8px;font-size:16px;font-weight:bold;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.3);';
+  document.body.appendChild(btn);
+
+  // 버튼 클릭 시 권한 요청
+  btn.addEventListener('click', async () => {
+    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+      const res = await DeviceMotionEvent.requestPermission();
+      if (res === 'granted') {
+        startShake();
+        btn.remove(); // 버튼 제거
+      } else {
+        alert('Permission denied');
+      }
+    } else {
+      startShake();
+      btn.remove();
+    }
+  });
 }
 
-// Shake 감지 함수
+// Shake 시작
+function startShake() {
+  shakeEnabled = true;
+  window.addEventListener('devicemotion', handleShake);
+}
+
+// Shake 감지
 function handleShake(e) {
-  if (!permissionGranted || isPlayingVideo) return;
+  if (!shakeEnabled || isPlayingVideo) return;
   
-  const c = e.accelerationIncludingGravity;
-  if (!c || c.x === null) return;
+  const acc = e.accelerationIncludingGravity;
+  if (!acc || acc.x === null) return;
   
-  const deltaX = Math.abs(c.x - lastAcc.x);
-  const deltaY = Math.abs(c.y - lastAcc.y);
-  const deltaZ = Math.abs(c.z - lastAcc.z);
-  const totalDelta = deltaX + deltaY + deltaZ;
-  const now = Date.now();
+  const {x, y, z} = acc;
   
-  if (totalDelta > 12 && now - lastShakeTime > 250) {
-    lastShakeTime = now;
+  if (lastX != null) {
+    const delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
     
-    // 이미지 토글
-    if (currentImg === img2) {
-      currentImg = img1;
-    } else {
-      currentImg = img2;
-      savedBrightnessLevel = brightnessLevel;
-      brightnessLevel = 0;
-      sliderY = sliderMaxY;
+    if (delta > 20) {
+      // 이미지 토글
+      if (currentImg === img2) {
+        currentImg = img1;
+      } else {
+        currentImg = img2;
+        savedBrightnessLevel = brightnessLevel;
+        brightnessLevel = 0;
+        sliderY = sliderMaxY;
+      }
     }
   }
   
-  lastAcc = { x: c.x, y: c.y, z: c.z };
-}
-
-// 권한 요청 함수
-function requestPermission() {
-  if (permissionGranted) return;
-  
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          permissionGranted = true;
-          window.addEventListener('devicemotion', handleShake);
-        }
-      })
-      .catch(console.error);
-  } else {
-    permissionGranted = true;
-    window.addEventListener('devicemotion', handleShake);
-  }
+  lastX = x;
+  lastY = y;
+  lastZ = z;
 }
 
 function draw() {
@@ -168,8 +177,6 @@ function updateBrightness() {
 }
 
 function mousePressed() {
-  requestPermission(); // 권한 요청
-  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -198,8 +205,6 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  requestPermission(); // 권한 요청
-  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
