@@ -12,10 +12,9 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// ========== SHAKE 기능 추가 (시작) ==========
+// Shake 변수
 let lastShakeTime = 0;
-let permissionRequested = false;
-// ========== SHAKE 기능 추가 (끝) ==========
+let permissionGranted = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -56,18 +55,33 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
   
-  // ========== SHAKE 기능 추가 (시작) ==========
-  // 안드로이드는 자동 활성화
+  // 안드로이드 자동 활성화
   if (typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission !== 'function') {
     window.addEventListener('devicemotion', handleShake);
+    permissionGranted = true;
   }
-  // ========== SHAKE 기능 추가 (끝) ==========
 }
 
-// ========== SHAKE 기능 추가 (시작) ==========
+// ⭐ 확실하게 권한 요청하는 함수
+function requestShakePermission() {
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    
+    // iOS에서 권한 요청
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
+          window.addEventListener('devicemotion', handleShake);
+          permissionGranted = true;
+        }
+      })
+      .catch(err => console.error(err));
+  }
+}
+
 function handleShake(event) {
-  if (isPlayingVideo) return;
+  if (!permissionGranted || isPlayingVideo) return;
   
   let accel = event.acceleration || event.accelerationIncludingGravity;
   if (!accel || accel.x === null) return;
@@ -78,7 +92,6 @@ function handleShake(event) {
   let total = Math.sqrt(x*x + y*y + z*z);
   
   if (total > 15 && millis() - lastShakeTime > 500) {
-    // 이미지 전환 (touchCount는 증가 안함)
     if (currentImg === img1) {
       currentImg = img2;
       savedBrightnessLevel = brightnessLevel;
@@ -92,7 +105,6 @@ function handleShake(event) {
     lastShakeTime = millis();
   }
 }
-// ========== SHAKE 기능 추가 (끝) ==========
 
 function draw() {
   if (isPlayingVideo) {
@@ -163,15 +175,10 @@ function updateBrightness() {
 function mousePressed() {
   if (isPlayingVideo) return false;
 
-  // ========== SHAKE 기능 추가 (시작) ==========
-  if (!permissionRequested && typeof DeviceMotionEvent !== 'undefined' && 
-      typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission().then(res => {
-      if (res === 'granted') window.addEventListener('devicemotion', handleShake);
-    });
-    permissionRequested = true;
+  // ⭐ 권한 없으면 요청
+  if (!permissionGranted) {
+    requestShakePermission();
   }
-  // ========== SHAKE 기능 추가 (끝) ==========
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
@@ -201,15 +208,10 @@ function mouseReleased() {
 function touchStarted() {
   if (isPlayingVideo) return false;
 
-  // ========== SHAKE 기능 추가 (시작) ==========
-  if (!permissionRequested && typeof DeviceMotionEvent !== 'undefined' && 
-      typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission().then(res => {
-      if (res === 'granted') window.addEventListener('devicemotion', handleShake);
-    });
-    permissionRequested = true;
+  // ⭐ 권한 없으면 요청
+  if (!permissionGranted) {
+    requestShakePermission();
   }
-  // ========== SHAKE 기능 추가 (끝) ==========
 
   if (touches.length > 0) {
     let t = touches[0];
