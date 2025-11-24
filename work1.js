@@ -13,6 +13,7 @@ let isPlayingVideo = false;
 let lastShakeTime = 0;
 let lastAcc = { x: 0, y: 0, z: 0 };
 let permissionGranted = false;
+let permissionRequested = false;
 
 function preload() {
   lightonImg = loadImage('lighton.jpg');  
@@ -45,22 +46,21 @@ function setup() {
   currentImg = lightoffImg;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+}
 
-  // iOS 권한 버튼 (DOM 직접 생성)
+function requestPermissionOnce() {
+  if (permissionRequested) return;
+  permissionRequested = true;
+
   if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    let btn = document.createElement('button');
-    btn.textContent = 'Enable Shake';
-    btn.style.cssText = 'position:fixed;top:10px;right:10px;z-index:999;padding:10px 15px;background:#32B8C6;color:white;border:none;border-radius:6px;font-size:14px;cursor:pointer;';
-    btn.onclick = () => {
-      DeviceMotionEvent.requestPermission().then(r => {
-        if (r === 'granted') {
+    DeviceMotionEvent.requestPermission()
+      .then(response => {
+        if (response === 'granted') {
           permissionGranted = true;
           window.addEventListener('devicemotion', handleShake);
-          btn.remove();
         }
-      }).catch(console.error);
-    };
-    document.body.appendChild(btn);
+      })
+      .catch(console.error);
   } else {
     permissionGranted = true;
     window.addEventListener('devicemotion', handleShake);
@@ -153,6 +153,8 @@ function updateBrightness() {
 }
 
 function mousePressed() {
+  requestPermissionOnce();
+  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -181,6 +183,8 @@ function mouseReleased() {
 }
 
 function touchStarted() {
+  requestPermissionOnce();
+  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
