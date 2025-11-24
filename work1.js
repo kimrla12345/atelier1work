@@ -12,10 +12,12 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// --- DeviceMotion 변수 ---
-let lastX = null;
-let lastY = null;
-let lastZ = null;
+// ========== ALWAYS ALIVE 변수 ==========
+let lastInteractionTime = 0;  // 마지막 상호작용 시간
+let isIdle = false;            // Idle 상태
+let nextBlinkTime = 0;         // 다음 깜빡임 시간
+let idleTimeout = 2000;        // 2초 후 Idle 진입
+// ======================================
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -28,30 +30,12 @@ function setup() {
 
   c.elt.style.touchAction = "none";
 
-  // ----------------------------
-  // 🔥 iPhone DeviceMotion 권한 요청
-  // ----------------------------
-  if (typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          console.log("DeviceMotion permission granted");
-          window.addEventListener('devicemotion', handleMotion);
-        } else {
-          console.log("DeviceMotion permission denied");
-        }
-      })
-      .catch(console.error);
-  } else {
-    // 안드로이드/PC 환경
-    window.addEventListener('devicemotion', handleMotion);
-  }
-  // ----------------------------
-
   videoElement = document.createElement('video');
-  videoElement.setAttribute('playsinline', 'playsinline');
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
-  videoElement.playsInline = true;
+
+  videoElement.setAttribute('playsinline', 'playsinline');     
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline'); 
+  videoElement.playsInline = true;                             
+
   videoElement.src = 'lightbroke.mp4';
 
   videoElement.style.display = 'none';
@@ -66,18 +50,48 @@ function setup() {
   videoElement.style.backgroundColor = '#000';
 
   document.body.appendChild(videoElement);
+
   videoElement.addEventListener('ended', onVideoEnded);
 
   currentImg = img2;
 
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+  
+  lastInteractionTime = millis();
 }
 
 function draw() {
-  if (isPlayingVideo) return;
+  if (isPlayingVideo) {
+    return;
+  }
 
   background(0);
+
+  // ========== ALWAYS ALIVE: Idle 깜빡임 ==========
+  let currentTime = millis();
+  
+  // ⭐ 조건: 2초 동안 터치 없음 AND 슬라이더 조작 중이 아님
+  if (currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
+    isIdle = true;
+    
+    if (currentTime > nextBlinkTime) {
+      // 랜덤하게 on/off (touchCount는 절대 증가 안 함!)
+      if (random() > 0.5) {
+        currentImg = img1;
+        brightnessLevel = random(1, 3);
+      } else {
+        currentImg = img2;
+        brightnessLevel = 0;
+      }
+      
+      // 다음 깜빡임: 300~800ms 후
+      nextBlinkTime = currentTime + random(300, 800);
+    }
+  } else {
+    isIdle = false;
+  }
+  // ===============================================
 
   let ar_img = currentImg.width / currentImg.height;
   let ar_win = width / height;
@@ -141,6 +155,11 @@ function updateBrightness() {
 function mousePressed() {
   if (isPlayingVideo) return false;
 
+  // ========== 상호작용 시간 업데이트 ==========
+  lastInteractionTime = millis();
+  isIdle = false;
+  // =========================================
+
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
@@ -154,6 +173,11 @@ function mouseDragged() {
   if (isPlayingVideo) return false;
 
   if (isDraggingSlider) {
+    // ========== 슬라이더 조작 중 = 상호작용 ==========
+    lastInteractionTime = millis();
+    isIdle = false;
+    // ==============================================
+    
     sliderY += movedY;
     sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
     updateBrightness();
@@ -163,11 +187,21 @@ function mouseDragged() {
 
 function mouseReleased() {
   isDraggingSlider = false;
+  
+  // ========== 슬라이더 놓은 후에도 시간 업데이트 ==========
+  lastInteractionTime = millis();
+  // ==================================================
+  
   return false;
 }
 
 function touchStarted() {
   if (isPlayingVideo) return false;
+
+  // ========== 상호작용 시간 업데이트 ==========
+  lastInteractionTime = millis();
+  isIdle = false;
+  // =========================================
 
   if (touches.length > 0) {
     let t = touches[0];
@@ -189,6 +223,11 @@ function touchMoved() {
   if (isPlayingVideo) return false;
 
   if (isDraggingSlider && touches.length > 0) {
+    // ========== 슬라이더 조작 중 = 상호작용 ==========
+    lastInteractionTime = millis();
+    isIdle = false;
+    // ==============================================
+    
     let t = touches[0];
 
     if (lastTouchY !== null) {
@@ -212,6 +251,10 @@ function touchEnded() {
   isDraggingSlider = false;
   lastTouchY = null;
 
+  // ========== 터치 끝난 후에도 시간 업데이트 ==========
+  lastInteractionTime = millis();
+  // ==============================================
+
   if (this._tapCandidate) {
     toggleImage();
   }
@@ -222,7 +265,7 @@ function touchEnded() {
 }
 
 function toggleImage() {
-  touchCount++;
+  touchCount++;  // ← 사용자 클릭만 카운트!
 
   if (touchCount === 100) {
     playVideo();
@@ -268,34 +311,11 @@ function resetAfterVideo() {
   brightnessLevel = 0;
   savedBrightnessLevel = 0;
   sliderY = sliderMaxY;
+  
+  lastInteractionTime = millis();
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   sliderMaxY = height - 50 - sliderHeight;
-}
-
-// -----------------------------------------------------
-// 🔥 흔들림 감지 (Shake Detection)
-// -----------------------------------------------------
-function handleMotion(event) {
-  if (!event.accelerationIncludingGravity) return;
-
-  let { x, y, z } = event.accelerationIncludingGravity;
-
-  if (lastX !== null) {
-    let delta =
-      Math.abs(x - lastX) +
-      Math.abs(y - lastY) +
-      Math.abs(z - lastZ);
-
-    // 흔들림 threshold — 필요하면 조절
-    if (delta > 25) {
-      toggleImage();
-    }
-  }
-
-  lastX = x;
-  lastY = y;
-  lastZ = z;
 }
