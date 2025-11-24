@@ -156,8 +156,8 @@ function checkCameraBrightness() {
       isDark = true;
       currentImg = img1;
       brightnessLevel = 3;
-      lastInteractionTime = millis();  // ⭐ 상호작용으로 인식
-      isIdle = false;  // ⭐ Idle 해제
+      // ⭐⭐⭐ 제거: lastInteractionTime 리셋 안 함!
+      isIdle = false;  // Idle만 해제
     }
   } 
   // ⭐ 밝으면 (손 치움) → 램프 끄기
@@ -166,7 +166,7 @@ function checkCameraBrightness() {
       isDark = false;
       currentImg = img2;
       brightnessLevel = 0;
-      lastInteractionTime = millis();  // ⭐ 타이머 리셋 (밝아진 순간부터 2초 카운트)
+      // ⭐⭐⭐ 제거: lastInteractionTime 리셋 안 함!
     }
   }
 }
@@ -184,7 +184,7 @@ function draw() {
   // ========== ALWAYS ALIVE: Idle 깜빡임 ==========
   let currentTime = millis();
   
-  // ⭐⭐⭐ 수정: 밝을 때만(!isDark) AND 2초 경과 AND 슬라이더 조작 안 함
+  // ⭐ 밝을 때만(!isDark) AND 2초 경과 AND 슬라이더 조작 안 함
   if (!isDark && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
     isIdle = true;
     
@@ -202,7 +202,7 @@ function draw() {
     }
   } else {
     if (isDark) {
-      isIdle = false;  // ⭐ 어두울 때는 Idle 없음
+      isIdle = false;  // 어두울 때는 Idle 없음
     }
   }
   // ===============================================
@@ -247,7 +247,7 @@ function draw() {
   // ========== 디버깅용 ==========
   fill(255, 200);
   textSize(12);
-  text(isDark ? 'Dark (NO blink)' : 'Bright (Can blink)', width/2, 60);
+  text(isDark ? 'Dark (lighton, NO blink)' : 'Bright (lightoff, CAN blink)', width/2, 60);
   if (isIdle) {
     text('~ breathing ~', width/2, 80);
   }
