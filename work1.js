@@ -15,8 +15,8 @@ function setup() {
   
   video = createVideo('lightbroke.mp4');
   video.hide();
+  video.volume(0);
   video.onended(() => {
-    video.hide();
     isPlayingVideo = false;
     touchCount = 0;
     currentImg = img2;
@@ -30,11 +30,20 @@ function setup() {
 }
 
 function draw() {
-  if (isPlayingVideo) return;
-  
   background(0);
   
-  // 이미지 비율 맞춰 그리기
+  if (isPlayingVideo) {
+    // 비디오를 화면에 맞춰 그리기 (검은 여백 없이)
+    let vw = video.width;
+    let vh = video.height;
+    let ar = vw / vh;
+    let [w, h] = ar > width/height ? [height * ar, height] : [width, width / ar];
+    imageMode(CENTER);
+    image(video, width/2, height/2, w, h);
+    return;
+  }
+  
+  // 이미지 비율 맞춰 그리기 (검은 여백 없이)
   let ar = currentImg.width / currentImg.height;
   let [w, h] = ar > width/height ? [height * ar, height] : [width, width / ar];
   imageMode(CENTER);
@@ -122,8 +131,7 @@ function touchEnded() {
 function toggleImage() {
   if (++touchCount === 100) {
     isPlayingVideo = true;
-    video.show();
-    video.volume(0);
+    video.time(0);
     video.play();
     return;
   }
