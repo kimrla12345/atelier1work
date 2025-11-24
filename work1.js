@@ -20,7 +20,7 @@ let shakeThreshold = 25;
 let lastShakeTime = 0;
 let shakeDebounce = 500;
 let motionPermissionGranted = false;
-let permissionButton;
+let permissionRequested = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -32,9 +32,6 @@ function setup() {
   c.parent('canvasWrap');
 
   c.elt.style.touchAction = "none";
-
-  // Create permission request button for iOS
-  createPermissionButton();
 
   videoElement = document.createElement('video');
 
@@ -64,7 +61,7 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
-  // Request motion permission for non-iOS devices
+  // 안드로이드나 권한이 필요없는 디바이스는 바로 활성화
   if (typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission !== 'function') {
     setupMotionListeners();
@@ -72,42 +69,22 @@ function setup() {
   }
 }
 
-function createPermissionButton() {
-  // Check if iOS device that requires permission
-  if (typeof DeviceMotionEvent !== 'undefined' && 
-      typeof DeviceMotionEvent.requestPermission === 'function') {
-    
-    permissionButton = createButton('흔들기 감지 활성화');
-    permissionButton.position(windowWidth / 2 - 80, windowHeight - 100);
-    permissionButton.style('padding', '15px 25px');
-    permissionButton.style('font-size', '16px');
-    permissionButton.style('background-color', '#4CAF50');
-    permissionButton.style('color', 'white');
-    permissionButton.style('border', 'none');
-    permissionButton.style('border-radius', '8px');
-    permissionButton.style('cursor', 'pointer');
-    permissionButton.style('z-index', '999');
-    
-    permissionButton.mousePressed(requestMotionPermission);
-  }
-}
-
 function requestMotionPermission() {
-  if (typeof DeviceMotionEvent.requestPermission === 'function') {
+  if (typeof DeviceMotionEvent !== 'undefined' &&
+      typeof DeviceMotionEvent.requestPermission === 'function') {
     DeviceMotionEvent.requestPermission()
       .then(response => {
         if (response === 'granted') {
           setupMotionListeners();
           motionPermissionGranted = true;
-          if (permissionButton) {
-            permissionButton.remove();
-            permissionButton = null;
-          }
+          console.log('Motion permission granted');
         } else {
           console.log('Motion permission denied');
         }
       })
-      .catch(console.error);
+      .catch(err => {
+        console.error('Permission request error:', err);
+      });
   }
 }
 
@@ -141,7 +118,7 @@ function handleMotion(event) {
 }
 
 function onShakeDetected() {
-  // Toggle image on shake without increasing touch count
+  // Shake로 이미지 전환 (touchCount 증가 안함)
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel;
@@ -224,6 +201,13 @@ function updateBrightness() {
 function mousePressed() {
   if (isPlayingVideo) return false;
 
+  // iOS에서 처음 클릭 시 권한 요청
+  if (!permissionRequested && typeof DeviceMotionEvent !== 'undefined' && 
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    requestMotionPermission();
+    permissionRequested = true;
+  }
+
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
@@ -251,6 +235,13 @@ function mouseReleased() {
 
 function touchStarted() {
   if (isPlayingVideo) return false;
+
+  // iOS에서 처음 터치 시 권한 요청
+  if (!permissionRequested && typeof DeviceMotionEvent !== 'undefined' && 
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    requestMotionPermission();
+    permissionRequested = true;
+  }
 
   if (touches.length > 0) {
     let t = touches[0];
@@ -356,8 +347,4 @@ function resetAfterVideo() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   sliderMaxY = height - 50 - sliderHeight;
-  
-  if (permissionButton) {
-    permissionButton.position(windowWidth / 2 - 80, windowHeight - 100);
-  }
 }
