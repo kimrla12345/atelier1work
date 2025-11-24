@@ -25,6 +25,13 @@ let shakeDebounce = 500;
 let permissionGranted = false;
 // ====================================
 
+// ========== 카메라 변수 ==========
+let capture;
+let cameraReady = false;
+let isDark = false;  // 현재 어두운지 여부
+let darknessThreshold = 50;  // 어두움 판단 임계값 (0-255)
+// ===============================
+
 function preload() {
   img1 = loadImage('lighton.jpg');  
   img2 = loadImage('lightoff.jpg');
@@ -67,13 +74,30 @@ function setup() {
   lastInteractionTime = millis();
   
   // ========== SHAKE 설정 ==========
-  // 안드로이드 자동 활성화
   if (typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission !== 'function') {
     window.addEventListener('devicemotion', handleShake);
     permissionGranted = true;
   }
   // ===============================
+  
+  // ========== 카메라 설정 (후면 카메라) ==========
+  let constraints = {
+    video: {
+      facingMode: { ideal: "environment" }  // 후면 카메라
+    },
+    audio: false
+  };
+  
+  capture = createCapture(constraints);
+  capture.size(160, 120);  // 작은 크기로 성능 최적화
+  capture.hide();  // 화면에 안 보이게
+  
+  // 카메라 준비될 때까지 대기
+  capture.elt.addEventListener('loadeddata', () => {
+    cameraReady = true;
+  });
+  // ============================================
 }
 
 // ========== SHAKE 감지 함수 ==========
@@ -89,11 +113,9 @@ function handleShake(event) {
   let total = Math.sqrt(x*x + y*y + z*z);
   
   if (total > 15 && millis() - lastShakeTime > shakeDebounce) {
-    // ⭐ 흔들기 = 상호작용 (Idle 멈춤)
     lastInteractionTime = millis();
     isIdle = false;
     
-    // ⭐ 이미지 토글 (touchCount는 증가 안 함!)
     if (currentImg === img1) {
       currentImg = img2;
       savedBrightnessLevel = brightnessLevel;
@@ -110,22 +132,69 @@ function handleShake(event) {
 }
 // ===================================
 
+// ========== 카메라 밝기 감지 함수 ==========
+function checkCameraBrightness() {
+  if (!cameraReady) return;
+  
+  capture.loadPixels();
+  let totalBrightness = 0;
+  let pixelCount = 0;
+  
+  // 모든 픽셀의 평균 밝기 계산
+  for (let i = 0; i < capture.pixels.length; i += 4) {
+    let r = capture.pixels[i];
+    let g = capture.pixels[i + 1];
+    let b = capture.pixels[i + 2];
+    let brightness = (r + g + b) / 3;
+    totalBrightness += brightness;
+    pixelCount++;
+  }
+  
+  let avgBrightness = totalBrightness / pixelCount;
+  
+  // ⭐ 어두우면 (손으로 가림) → 램프 켜기
+  if (avgBrightness < darknessThreshold) {
+    if (!isDark) {
+      // 방금 어두워짐
+      isDark = true;
+      currentImg = img1;
+      brightnessLevel = 3;
+      lastInteractionTime = millis();  // Idle 타이머 리셋
+    }
+  } 
+  // ⭐ 밝으면 (손 치움) → 램프 끄기
+  else {
+    if (isDark) {
+      // 방금 밝아짐
+      isDark = false;
+      currentImg = img2;
+      brightnessLevel = 0;
+      isIdle = false;  // Idle 멈춤
+    }
+  }
+}
+// =========================================
+
 function draw() {
   if (isPlayingVideo) {
     return;
   }
 
   background(0);
+  
+  // ========== 카메라 밝기 체크 (매 프레임) ==========
+  checkCameraBrightness();
+  // ==============================================
 
   // ========== ALWAYS ALIVE: Idle 깜빡임 ==========
   let currentTime = millis();
   
-  // ⭐ 조건: 2초 동안 터치 없음 AND 슬라이더 조작 중이 아님
-  if (currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
+  // ⭐ 조건: 어두울 때만(isDark) AND 2초 경과 AND 슬라이더 조작 안 함
+  if (isDark && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
     isIdle = true;
     
     if (currentTime > nextBlinkTime) {
-      // 랜덤하게 on/off (touchCount는 절대 증가 안 함!)
+      // 랜덤하게 on/off
       if (random() > 0.5) {
         currentImg = img1;
         brightnessLevel = random(1, 3);
@@ -137,7 +206,9 @@ function draw() {
       nextBlinkTime = currentTime + random(300, 800);
     }
   } else {
-    isIdle = false;
+    if (!isDark) {
+      isIdle = false;  // 밝을 때는 Idle 없음
+    }
   }
   // ===============================================
 
@@ -177,6 +248,12 @@ function draw() {
   textAlign(CENTER, TOP);
   textSize(16);
   text('Click: ' + touchCount, width/2, 20);
+  
+  // ========== 디버깅용 (밝기 표시) ==========
+  fill(255, 200);
+  textSize(12);
+  text(isDark ? 'Dark (Lamp ON)' : 'Bright (Lamp OFF)', width/2, 60);
+  // ======================================
 }
 
 function drawSlider() {
@@ -203,12 +280,9 @@ function updateBrightness() {
 function mousePressed() {
   if (isPlayingVideo) return false;
 
-  // ========== 상호작용 시간 업데이트 ==========
   lastInteractionTime = millis();
   isIdle = false;
-  // =========================================
 
-  // ========== iOS 권한 요청 (첫 클릭 시) ==========
   if (!permissionGranted && typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission === 'function') {
     DeviceMotionEvent.requestPermission().then(res => {
@@ -218,7 +292,6 @@ function mousePressed() {
       }
     });
   }
-  // =============================================
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
@@ -255,7 +328,6 @@ function touchStarted() {
   lastInteractionTime = millis();
   isIdle = false;
 
-  // ========== iOS 권한 요청 (첫 터치 시) ==========
   if (!permissionGranted && typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission === 'function') {
     DeviceMotionEvent.requestPermission().then(res => {
@@ -265,7 +337,6 @@ function touchStarted() {
       }
     });
   }
-  // =============================================
 
   if (touches.length > 0) {
     let t = touches[0];
@@ -325,7 +396,7 @@ function touchEnded() {
 }
 
 function toggleImage() {
-  touchCount++;  // ← 사용자 클릭만 카운트!
+  touchCount++;
 
   if (touchCount === 100) {
     playVideo();
