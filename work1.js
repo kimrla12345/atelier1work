@@ -12,12 +12,11 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// 마이크 입력 관련 p5 객체
-let mic, amplitude;
-let soundThreshold = 0.05; // 소리 감지 기준값 (환경에 맞게 조정)
+// --- 추가: 마이크 입력 ---
+let mic;
 
 function preload() {
-  img1 = loadImage('lighton.jpg');
+  img1 = loadImage('lighton.jpg');  
   img2 = loadImage('lightoff.jpg');
 }
 
@@ -27,17 +26,11 @@ function setup() {
 
   c.elt.style.touchAction = "none";
 
-  // 마이크 시작
-  mic = new p5.AudioIn();
-  mic.start();
-  amplitude = new p5.Amplitude();
-  amplitude.setInput(mic);
-
   videoElement = document.createElement('video');
 
-  videoElement.setAttribute('playsinline', 'playsinline');
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
-  videoElement.playsInline = true;
+  videoElement.setAttribute('playsinline', 'playsinline');     
+  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline'); 
+  videoElement.playsInline = true;                             
 
   videoElement.src = 'lightbroke.mp4';
 
@@ -60,6 +53,10 @@ function setup() {
 
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+
+  // --- 추가: 마이크 초기화 ---
+  mic = new p5.AudioIn();
+  mic.start();
 }
 
 function draw() {
@@ -67,24 +64,14 @@ function draw() {
     return;
   }
 
-  // 소리 레벨 감지하여 이미지 전환 (클릭 카운트 증가 없음)
-  let level = amplitude.getLevel();
-  if (level > soundThreshold) {
-    if (currentImg !== img1) {
-      currentImg = img1;
-      // brightnessLevel 유지 혹은 기본값 설정
-      brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
-      let normalizedBrightness = brightnessLevel / 5;
-      sliderY = sliderMaxY - normalizedBrightness * (sliderMaxY - sliderMinY);
-    }
-  } else {
-    if (currentImg !== img2) {
-      currentImg = img2;
-      savedBrightnessLevel = brightnessLevel;
-      brightnessLevel = 0;
-      sliderY = sliderMaxY;
-    }
+  // --- 추가: 소리 감지로 이미지 전환 ---
+  let vol = mic.getLevel(); // 0~1
+  if (vol > 0.1) { // 민감도 조절 가능
+    currentImg = img1;
+  } else if (brightnessLevel === 0) {
+    currentImg = img2;
   }
+  // --- 추가 끝 ---
 
   background(0);
 
@@ -101,7 +88,7 @@ function draw() {
   }
 
   imageMode(CENTER);
-  image(currentImg, width / 2, height / 2, drawW, drawH);
+  image(currentImg, width/2, height/2, drawW, drawH);
 
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
@@ -123,7 +110,7 @@ function draw() {
   fill(255);
   textAlign(CENTER, TOP);
   textSize(16);
-  text('Click: ' + touchCount, width / 2, 20);
+  text('Click: ' + touchCount, width/2, 20);
 }
 
 function drawSlider() {
@@ -155,7 +142,6 @@ function mousePressed() {
     return false;
   }
 
-  // 클릭 시 이미지 토글 및 클릭 카운트 증가
   toggleImage();
   return false;
 }
@@ -231,6 +217,7 @@ function touchEnded() {
   return false;
 }
 
+
 function toggleImage() {
   touchCount++;
 
@@ -248,7 +235,7 @@ function toggleImage() {
     currentImg = img1;
     brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
     let normalizedBrightness = brightnessLevel / 5;
-    sliderY = sliderMaxY - normalizedBrightness * (sliderMaxY - sliderMinY);
+    sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
   }
 }
 
