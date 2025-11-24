@@ -52,7 +52,6 @@ function setup() {
   sliderY = sliderMaxY;
 }
 
-// 권한 요청 (첫 터치 시 자동)
 async function askPermission() {
   if (permissionAsked) return;
   permissionAsked = true;
@@ -61,23 +60,18 @@ async function askPermission() {
     try {
       const res = await DeviceMotionEvent.requestPermission();
       if (res === 'granted') {
-        startShake();
+        shakeEnabled = true;
+        window.addEventListener('devicemotion', handleShake);
       }
     } catch(err) {
       console.error(err);
     }
   } else {
-    startShake();
+    shakeEnabled = true;
+    window.addEventListener('devicemotion', handleShake);
   }
 }
 
-// Shake 시작
-function startShake() {
-  shakeEnabled = true;
-  window.addEventListener('devicemotion', handleShake);
-}
-
-// Shake 감지
 function handleShake(e) {
   if (!shakeEnabled || isPlayingVideo) return;
   
@@ -90,7 +84,6 @@ function handleShake(e) {
     const delta = Math.abs(x - lastX) + Math.abs(y - lastY) + Math.abs(z - lastZ);
     
     if (delta > 20) {
-      // 이미지 토글
       if (currentImg === img2) {
         currentImg = img1;
       } else {
@@ -174,7 +167,7 @@ function updateBrightness() {
 }
 
 function mousePressed() {
-  askPermission(); // 첫 클릭 시 권한 요청
+  askPermission();
   
   if (isPlayingVideo) return false;
 
@@ -204,7 +197,7 @@ function mouseReleased() {
 }
 
 function touchStarted() {
-  askPermission(); // 첫 터치 시 권한 요청
+  askPermission();
   
   if (isPlayingVideo) return false;
 
