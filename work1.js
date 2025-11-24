@@ -28,7 +28,7 @@ let permissionGranted = false;
 // ========== 카메라 변수 ==========
 let capture;
 let cameraReady = false;
-let isDark = false;
+let isCameraCovered = false;  // ⭐ 이름 변경: 카메라가 가려졌는지
 let darknessThreshold = 50;
 // ===============================
 
@@ -150,23 +150,21 @@ function checkCameraBrightness() {
   
   let avgBrightness = totalBrightness / pixelCount;
   
-  // ⭐ 어두우면 (손으로 가림) → 램프 켜기
+  // ⭐ 어두우면 (카메라 가림) → 램프 켜기
   if (avgBrightness < darknessThreshold) {
-    if (!isDark) {
-      isDark = true;
+    if (!isCameraCovered) {
+      isCameraCovered = true;
       currentImg = img1;
       brightnessLevel = 3;
-      // ⭐⭐⭐ 제거: lastInteractionTime 리셋 안 함!
-      isIdle = false;  // Idle만 해제
+      isIdle = false;  // ⭐ Idle 해제
     }
   } 
-  // ⭐ 밝으면 (손 치움) → 램프 끄기
+  // ⭐ 밝으면 (카메라 안 가림) → 램프 끄기
   else {
-    if (isDark) {
-      isDark = false;
+    if (isCameraCovered) {
+      isCameraCovered = false;
       currentImg = img2;
       brightnessLevel = 0;
-      // ⭐⭐⭐ 제거: lastInteractionTime 리셋 안 함!
     }
   }
 }
@@ -184,8 +182,8 @@ function draw() {
   // ========== ALWAYS ALIVE: Idle 깜빡임 ==========
   let currentTime = millis();
   
-  // ⭐ 밝을 때만(!isDark) AND 2초 경과 AND 슬라이더 조작 안 함
-  if (!isDark && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
+  // ⭐⭐⭐ 핵심: 카메라 안 가렸을 때만(!isCameraCovered) 깜빡임
+  if (!isCameraCovered && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
     isIdle = true;
     
     if (currentTime > nextBlinkTime) {
@@ -201,8 +199,9 @@ function draw() {
       nextBlinkTime = currentTime + random(300, 800);
     }
   } else {
-    if (isDark) {
-      isIdle = false;  // 어두울 때는 Idle 없음
+    // ⭐ 카메라 가렸으면 Idle 해제
+    if (isCameraCovered) {
+      isIdle = false;
     }
   }
   // ===============================================
@@ -247,7 +246,7 @@ function draw() {
   // ========== 디버깅용 ==========
   fill(255, 200);
   textSize(12);
-  text(isDark ? 'Dark (lighton, NO blink)' : 'Bright (lightoff, CAN blink)', width/2, 60);
+  text(isCameraCovered ? 'Camera COVERED (lighton, NO blink)' : 'Camera OPEN (lightoff, CAN blink)', width/2, 60);
   if (isIdle) {
     text('~ breathing ~', width/2, 80);
   }
