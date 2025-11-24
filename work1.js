@@ -12,25 +12,21 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// ========== ALWAYS ALIVE 변수 ==========
+
 let lastInteractionTime = 0;
 let isIdle = false;
 let nextBlinkTime = 0;
 let idleTimeout = 2000;
-// ======================================
 
-// ========== SHAKE 감지 변수 ==========
 let lastShakeTime = 0;
 let shakeDebounce = 500;
 let permissionGranted = false;
-// ====================================
 
-// ========== 카메라 변수 ==========
 let capture;
 let cameraReady = false;
-let isCameraCovered = false;  // ⭐ 이름 변경: 카메라가 가려졌는지
+let isCameraCovered = false;  
 let darknessThreshold = 50;
-// ===============================
+
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -73,15 +69,13 @@ function setup() {
   
   lastInteractionTime = millis();
   
-  // ========== SHAKE 설정 ==========
+
   if (typeof DeviceMotionEvent !== 'undefined' && 
       typeof DeviceMotionEvent.requestPermission !== 'function') {
     window.addEventListener('devicemotion', handleShake);
     permissionGranted = true;
   }
-  // ===============================
-  
-  // ========== 카메라 설정 (후면 카메라) ==========
+
   let constraints = {
     video: {
       facingMode: { ideal: "environment" }
@@ -96,10 +90,10 @@ function setup() {
   capture.elt.addEventListener('loadeddata', () => {
     cameraReady = true;
   });
-  // ============================================
+ 
 }
 
-// ========== SHAKE 감지 함수 ==========
+
 function handleShake(event) {
   if (!permissionGranted || isPlayingVideo) return;
   
@@ -129,9 +123,7 @@ function handleShake(event) {
     lastShakeTime = millis();
   }
 }
-// ===================================
 
-// ========== 카메라 밝기 감지 함수 ==========
 function checkCameraBrightness() {
   if (!cameraReady) return;
   
@@ -150,16 +142,15 @@ function checkCameraBrightness() {
   
   let avgBrightness = totalBrightness / pixelCount;
   
-  // ⭐ 어두우면 (카메라 가림) → 램프 켜기
   if (avgBrightness < darknessThreshold) {
     if (!isCameraCovered) {
       isCameraCovered = true;
       currentImg = img1;
       brightnessLevel = 3;
-      isIdle = false;  // ⭐ Idle 해제
+      isIdle = false;  
     }
   } 
-  // ⭐ 밝으면 (카메라 안 가림) → 램프 끄기
+ 
   else {
     if (isCameraCovered) {
       isCameraCovered = false;
@@ -168,7 +159,7 @@ function checkCameraBrightness() {
     }
   }
 }
-// =========================================
+
 
 function draw() {
   if (isPlayingVideo) {
@@ -179,15 +170,13 @@ function draw() {
   
   checkCameraBrightness();
 
-  // ========== ALWAYS ALIVE: Idle 깜빡임 ==========
   let currentTime = millis();
   
-  // ⭐⭐⭐ 핵심: 카메라 안 가렸을 때만(!isCameraCovered) 깜빡임
   if (!isCameraCovered && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
     isIdle = true;
     
     if (currentTime > nextBlinkTime) {
-      // 랜덤하게 on/off
+   
       if (random() > 0.5) {
         currentImg = img1;
         brightnessLevel = random(1, 3);
@@ -199,12 +188,12 @@ function draw() {
       nextBlinkTime = currentTime + random(300, 800);
     }
   } else {
-    // ⭐ 카메라 가렸으면 Idle 해제
+    
     if (isCameraCovered) {
       isIdle = false;
     }
   }
-  // ===============================================
+
 
   let ar_img = currentImg.width / currentImg.height;
   let ar_win = width / height;
@@ -243,14 +232,14 @@ function draw() {
   textSize(16);
   text('Click: ' + touchCount, width/2, 20);
   
-  // ========== 디버깅용 ==========
+ 
   fill(255, 200);
   textSize(12);
   text(isCameraCovered ? 'Camera COVERED (lighton, NO blink)' : 'Camera OPEN (lightoff, CAN blink)', width/2, 60);
   if (isIdle) {
     text('~ breathing ~', width/2, 80);
   }
-  // ============================
+
 }
 
 function drawSlider() {
