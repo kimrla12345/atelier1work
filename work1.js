@@ -13,11 +13,17 @@ let videoElement;
 let isPlayingVideo = false;
 
 // ========== ALWAYS ALIVE 변수 ==========
-let lastInteractionTime = 0;  // 마지막 상호작용 시간
-let isIdle = false;            // Idle 상태
-let nextBlinkTime = 0;         // 다음 깜빡임 시간
-let idleTimeout = 2000;        // 2초 후 Idle 진입
+let lastInteractionTime = 0;
+let isIdle = false;
+let nextBlinkTime = 0;
+let idleTimeout = 2000;
 // ======================================
+
+// ========== SHAKE 감지 변수 ==========
+let lastShakeTime = 0;
+let shakeDebounce = 500;
+let permissionGranted = false;
+// ====================================
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -59,7 +65,50 @@ function setup() {
   sliderY = sliderMaxY;
   
   lastInteractionTime = millis();
+  
+  // ========== SHAKE 설정 ==========
+  // 안드로이드 자동 활성화
+  if (typeof DeviceMotionEvent !== 'undefined' && 
+      typeof DeviceMotionEvent.requestPermission !== 'function') {
+    window.addEventListener('devicemotion', handleShake);
+    permissionGranted = true;
+  }
+  // ===============================
 }
+
+// ========== SHAKE 감지 함수 ==========
+function handleShake(event) {
+  if (!permissionGranted || isPlayingVideo) return;
+  
+  let accel = event.acceleration || event.accelerationIncludingGravity;
+  if (!accel || accel.x === null) return;
+  
+  let x = accel.x || 0;
+  let y = accel.y || 0;
+  let z = accel.z || 0;
+  let total = Math.sqrt(x*x + y*y + z*z);
+  
+  if (total > 15 && millis() - lastShakeTime > shakeDebounce) {
+    // ⭐ 흔들기 = 상호작용 (Idle 멈춤)
+    lastInteractionTime = millis();
+    isIdle = false;
+    
+    // ⭐ 이미지 토글 (touchCount는 증가 안 함!)
+    if (currentImg === img1) {
+      currentImg = img2;
+      savedBrightnessLevel = brightnessLevel;
+      brightnessLevel = 0;
+      sliderY = sliderMaxY;
+    } else {
+      currentImg = img1;
+      brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
+      sliderY = sliderMaxY - ((brightnessLevel / 5) * (sliderMaxY - sliderMinY));
+    }
+    
+    lastShakeTime = millis();
+  }
+}
+// ===================================
 
 function draw() {
   if (isPlayingVideo) {
@@ -85,7 +134,6 @@ function draw() {
         brightnessLevel = 0;
       }
       
-      // 다음 깜빡임: 300~800ms 후
       nextBlinkTime = currentTime + random(300, 800);
     }
   } else {
@@ -160,6 +208,18 @@ function mousePressed() {
   isIdle = false;
   // =========================================
 
+  // ========== iOS 권한 요청 (첫 클릭 시) ==========
+  if (!permissionGranted && typeof DeviceMotionEvent !== 'undefined' && 
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().then(res => {
+      if (res === 'granted') {
+        window.addEventListener('devicemotion', handleShake);
+        permissionGranted = true;
+      }
+    });
+  }
+  // =============================================
+
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
@@ -173,10 +233,8 @@ function mouseDragged() {
   if (isPlayingVideo) return false;
 
   if (isDraggingSlider) {
-    // ========== 슬라이더 조작 중 = 상호작용 ==========
     lastInteractionTime = millis();
     isIdle = false;
-    // ==============================================
     
     sliderY += movedY;
     sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
@@ -187,21 +245,27 @@ function mouseDragged() {
 
 function mouseReleased() {
   isDraggingSlider = false;
-  
-  // ========== 슬라이더 놓은 후에도 시간 업데이트 ==========
   lastInteractionTime = millis();
-  // ==================================================
-  
   return false;
 }
 
 function touchStarted() {
   if (isPlayingVideo) return false;
 
-  // ========== 상호작용 시간 업데이트 ==========
   lastInteractionTime = millis();
   isIdle = false;
-  // =========================================
+
+  // ========== iOS 권한 요청 (첫 터치 시) ==========
+  if (!permissionGranted && typeof DeviceMotionEvent !== 'undefined' && 
+      typeof DeviceMotionEvent.requestPermission === 'function') {
+    DeviceMotionEvent.requestPermission().then(res => {
+      if (res === 'granted') {
+        window.addEventListener('devicemotion', handleShake);
+        permissionGranted = true;
+      }
+    });
+  }
+  // =============================================
 
   if (touches.length > 0) {
     let t = touches[0];
@@ -223,10 +287,8 @@ function touchMoved() {
   if (isPlayingVideo) return false;
 
   if (isDraggingSlider && touches.length > 0) {
-    // ========== 슬라이더 조작 중 = 상호작용 ==========
     lastInteractionTime = millis();
     isIdle = false;
-    // ==============================================
     
     let t = touches[0];
 
@@ -251,9 +313,7 @@ function touchEnded() {
   isDraggingSlider = false;
   lastTouchY = null;
 
-  // ========== 터치 끝난 후에도 시간 업데이트 ==========
   lastInteractionTime = millis();
-  // ==============================================
 
   if (this._tapCandidate) {
     toggleImage();
