@@ -53,7 +53,7 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
-  // iOS 기기용 모션 권한 요청 버튼 생성
+  // iOS 기기에서 모션 권한 요청 버튼 생성
   if (
     typeof DeviceMotionEvent !== 'undefined' &&
     typeof DeviceMotionEvent.requestPermission === 'function'
@@ -62,8 +62,15 @@ function setup() {
     permissionButton.style('position', 'fixed');
     permissionButton.style('top', '10px');
     permissionButton.style('right', '10px');
-    permissionButton.style('z-index', '2000');
-    permissionButton.mousePressed(requestMotionPermission);
+    permissionButton.style('z-index', '9999');
+    permissionButton.style('padding', '10px 15px');
+    permissionButton.style('font-size', '16px');
+
+    permissionButton.mousePressed((event) => {
+      event.stopPropagation();
+      event.preventDefault();
+      requestMotionPermission();
+    });
   }
 }
 
@@ -71,13 +78,19 @@ function requestMotionPermission() {
   DeviceMotionEvent.requestPermission()
     .then(response => {
       if (response === 'granted') {
-        permissionButton.remove();
+        if (permissionButton) {
+          permissionButton.remove();
+          permissionButton = null;
+        }
         window.addEventListener('devicemotion', detectShake);
       } else {
         alert('Motion sensor permission denied. Shake feature disabled.');
       }
     })
-    .catch(console.error);
+    .catch(err => {
+      console.error(err);
+      alert('Motion sensor permission error.');
+    });
 }
 
 let shakeThreshold = 15;
