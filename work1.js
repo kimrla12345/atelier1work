@@ -12,7 +12,7 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-let permissionButton; // iOS 모션 권한 버튼
+let permissionButton;
 
 function preload() {
   img1 = loadImage('lighton.jpg');
@@ -53,7 +53,7 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
-  // iOS 기기에서 모션 권한 요청 버튼 생성
+  // iOS 모션 권한 요청 버튼 생성 (필요시만)
   if (
     typeof DeviceMotionEvent !== 'undefined' &&
     typeof DeviceMotionEvent.requestPermission === 'function'
@@ -63,12 +63,20 @@ function setup() {
     permissionButton.style('top', '10px');
     permissionButton.style('right', '10px');
     permissionButton.style('z-index', '9999');
-    permissionButton.style('padding', '10px 15px');
-    permissionButton.style('font-size', '16px');
+    permissionButton.style('padding', '12px 20px');
+    permissionButton.style('font-size', '18px');
+    permissionButton.style('background', '#ffcc00');
+    permissionButton.style('border', 'none');
+    permissionButton.style('border-radius', '8px');
+    permissionButton.style('box-shadow', '0 2px 6px rgba(0,0,0,0.3)');
+    permissionButton.style('cursor', 'pointer');
+    permissionButton.elt.style.userSelect = 'none';
 
     permissionButton.mousePressed((event) => {
-      event.stopPropagation();
+      // 버튼 클릭 시 이벤트 캔슬링으로 뒤 터치 방지
       event.preventDefault();
+      event.stopPropagation();
+
       requestMotionPermission();
     });
   }
@@ -88,30 +96,30 @@ function requestMotionPermission() {
       }
     })
     .catch(err => {
-      console.error(err);
+      console.error('Permission request error:', err);
       alert('Motion sensor permission error.');
     });
 }
 
 let shakeThreshold = 15;
 let lastShakeTime = 0;
-let shakeCooldown = 1000; // 1초 쿨다운
+let shakeCooldown = 1000;
 
 function detectShake(event) {
-  let acc = event.accelerationIncludingGravity;
+  const acc = event.accelerationIncludingGravity;
   if (!acc) return;
 
-  let accX = acc.x;
-  let accY = acc.y;
-  let accZ = acc.z;
+  const accX = acc.x || 0;
+  const accY = acc.y || 0;
+  const accZ = acc.z || 0;
 
-  let totalAcc = Math.sqrt(accX * accX + accY * accY + accZ * accZ);
+  const totalAcc = Math.sqrt(accX*accX + accY*accY + accZ*accZ);
 
-  let currentTime = millis();
+  const currentTime = millis();
   if (totalAcc > shakeThreshold && currentTime - lastShakeTime > shakeCooldown) {
     lastShakeTime = currentTime;
 
-    // 흔들기로 인한 이미지 토글 (clickCount 증가 없음)
+    // 모션으로 이미지 토글하되 터치 카운트는 증가시키지 않음
     if (currentImg === img2) {
       currentImg = img1;
       brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
@@ -127,14 +135,12 @@ function detectShake(event) {
 }
 
 function draw() {
-  if (isPlayingVideo) {
-    return;
-  }
+  if (isPlayingVideo) return;
 
   background(0);
 
-  let ar_img = currentImg.width / currentImg.height;
-  let ar_win = width / height;
+  const ar_img = currentImg.width / currentImg.height;
+  const ar_win = width / height;
   let drawW, drawH;
 
   if (ar_img > ar_win) {
@@ -152,11 +158,11 @@ function draw() {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
 
-    let lightX = width / 1.8 + 100;
-    let lightY = height / 2;
+    const lightX = width / 1.8 + 100;
+    const lightY = height / 2;
 
     for (let r = radius; r > 0; r -= 10) {
-      let alpha = map(r, 0, radius, brightness, 0);
+      const alpha = map(r, 0, radius, brightness, 0);
       noStroke();
       fill(255, 255, 100, alpha * 0.2);
       circle(lightX, lightY, r * 2);
