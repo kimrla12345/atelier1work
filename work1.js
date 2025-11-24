@@ -1,289 +1,146 @@
-let lightonImg, lightoffImg, currentImg;
-let sliderY = 0;
-let sliderHeight = 30;
-let brightnessLevel = 0;
-let isDraggingSlider = false;
-let sliderMinY = 50;
-let sliderMaxY = 0;
-let savedBrightnessLevel = 0;
+let img1, img2, currentImg;
+let sliderY, sliderMinY = 50, sliderMaxY;
+let brightnessLevel = 0, savedBrightnessLevel = 0;
+let isDragging = false, lastTouchY = null, tapCandidate = false;
 let touchCount = 0;
-let lastTouchY = null;
-let videoElement;
-let isPlayingVideo = false;
-let lastShakeTime = 0;
-let lastAcc = { x: 0, y: 0, z: 0 };
-let permissionGranted = false;
-let permissionRequested = false;
+let video, isPlayingVideo = false;
 
 function preload() {
-  lightonImg = loadImage('lighton.jpg');  
-  lightoffImg = loadImage('lightoff.jpg');
+  img1 = loadImage('lighton.jpg');
+  img2 = loadImage('lightoff.jpg');
 }
 
 function setup() {
-  let c = createCanvas(windowWidth, windowHeight);
-  c.parent('canvasWrap');
-  c.elt.style.touchAction = "none";
-
-  videoElement = document.createElement('video');
-  videoElement.setAttribute('playsinline', 'playsinline');
-  videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
-  videoElement.playsInline = true;
-  videoElement.src = 'lightbroke.mp4';
-  videoElement.style.display = 'none';
-  videoElement.style.position = 'fixed';
-  videoElement.style.top = '0';
-  videoElement.style.left = '0';
-  videoElement.style.width = '100vw';
-  videoElement.style.height = '100vh';
-  videoElement.style.objectFit = 'cover';
-  videoElement.style.objectPosition = 'center';
-  videoElement.style.zIndex = '1000';
-  videoElement.style.backgroundColor = '#000';
-  document.body.appendChild(videoElement);
-  videoElement.addEventListener('ended', onVideoEnded);
-
-  currentImg = lightoffImg;
-  sliderMaxY = height - 50 - sliderHeight;
+  createCanvas(windowWidth, windowHeight).parent('canvasWrap');
+  
+  video = createVideo('lightbroke.mp4');
+  video.hide();
+  video.onended(() => {
+    video.hide();
+    isPlayingVideo = false;
+    touchCount = 0;
+    currentImg = img2;
+    brightnessLevel = 0;
+    sliderY = sliderMaxY;
+  });
+  
+  currentImg = img2;
+  sliderMaxY = height - 80;
   sliderY = sliderMaxY;
-}
-
-function requestPermissionOnce() {
-  if (permissionRequested) return;
-  permissionRequested = true;
-
-  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          permissionGranted = true;
-          window.addEventListener('devicemotion', handleShake);
-        }
-      })
-      .catch(console.error);
-  } else {
-    permissionGranted = true;
-    window.addEventListener('devicemotion', handleShake);
-  }
-}
-
-function handleShake(e) {
-  if (!permissionGranted || isPlayingVideo) return;
-  const c = e.accelerationIncludingGravity;
-  if (!c?.x) return;
-  
-  const delta = Math.abs(c.x - lastAcc.x) + Math.abs(c.y - lastAcc.y) + Math.abs(c.z - lastAcc.z);
-  const now = Date.now();
-  
-  if (delta > 12 && now - lastShakeTime > 250) {
-    lastShakeTime = now;
-    if (currentImg === lightoffImg) {
-      currentImg = lightonImg;
-    } else {
-      currentImg = lightoffImg;
-      savedBrightnessLevel = brightnessLevel;
-      brightnessLevel = 0;
-      sliderY = sliderMaxY;
-    }
-  }
-  
-  lastAcc = { x: c.x, y: c.y, z: c.z };
 }
 
 function draw() {
   if (isPlayingVideo) return;
-
+  
   background(0);
-
-  let ar_img = currentImg.width / currentImg.height;
-  let ar_win = width / height;
-  let drawW, drawH;
-
-  if (ar_img > ar_win) {
-    drawH = height;
-    drawW = height * ar_img;
-  } else {
-    drawW = width;
-    drawH = width / ar_img;
-  }
-
+  
+  // 이미지 비율 맞춰 그리기
+  let ar = currentImg.width / currentImg.height;
+  let [w, h] = ar > width/height ? [height * ar, height] : [width, width / ar];
   imageMode(CENTER);
-  image(currentImg, width/2, height/2, drawW, drawH);
-
-  if (currentImg === lightonImg && brightnessLevel > 0) {
-    let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
-    let radius = map(brightnessLevel, 0.1, 5, 50, 400);
-    let lightX = width / 1.8 + 100;
-    let lightY = height / 2;
-
-    for (let r = radius; r > 0; r -= 10) {
-      let alpha = map(r, 0, radius, brightness, 0);
+  image(currentImg, width/2, height/2, w, h);
+  
+  // 밝기 효과
+  if (currentImg === img1 && brightnessLevel > 0) {
+    let b = map(brightnessLevel, 0.1, 5, 0, 150);
+    let r = map(brightnessLevel, 0.1, 5, 50, 400);
+    for (let i = r; i > 0; i -= 10) {
       noStroke();
-      fill(255, 255, 100, alpha * 0.2);
-      circle(lightX, lightY, r * 2);
+      fill(255, 255, 100, map(i, 0, r, b, 0) * 0.2);
+      circle(width/1.8 + 100, height/2, i * 2);
     }
   }
-
-  drawSlider();
-
-  fill(255);
-  textAlign(CENTER, TOP);
-  textSize(16);
+  
+  // 슬라이더
+  stroke(100); strokeWeight(2);
+  line(25, sliderMinY, 25, height - 50);
+  fill(255, 255, 100); noStroke();
+  circle(25, sliderY + 15, 16);
+  
+  fill(255); textAlign(CENTER); textSize(16);
   text('Click: ' + touchCount, width/2, 20);
 }
 
-function drawSlider() {
-  stroke(100);
-  strokeWeight(2);
-  line(25, sliderMinY, 25, height - 50);
-  fill(255, 255, 100);
-  noStroke();
-  circle(25, sliderY + sliderHeight / 2, 16);
-}
-
 function updateBrightness() {
-  let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY));
-  brightnessLevel = constrain(normalizedPos * 5, 0, 5);
-
-  if (brightnessLevel > 0.1) {
-    currentImg = lightonImg;
-  } else {
-    currentImg = lightoffImg;
-  }
+  brightnessLevel = constrain((1 - (sliderY - sliderMinY) / (sliderMaxY - sliderMinY)) * 5, 0, 5);
+  currentImg = brightnessLevel > 0.1 ? img1 : img2;
 }
 
 function mousePressed() {
-  requestPermissionOnce();
-  
   if (isPlayingVideo) return false;
-
-  if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
-    isDraggingSlider = true;
+  if (dist(mouseX, mouseY, 25, sliderY + 15) < 25) {
+    isDragging = true;
     return false;
   }
-
   toggleImage();
   return false;
 }
 
 function mouseDragged() {
-  if (isPlayingVideo) return false;
-
-  if (isDraggingSlider) {
-    sliderY += movedY;
-    sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
+  if (isDragging && !isPlayingVideo) {
+    sliderY = constrain(sliderY + movedY, sliderMinY, sliderMaxY);
     updateBrightness();
   }
   return false;
 }
 
 function mouseReleased() {
-  isDraggingSlider = false;
+  isDragging = false;
   return false;
 }
 
 function touchStarted() {
-  requestPermissionOnce();
-  
   if (isPlayingVideo) return false;
-
-  if (touches.length > 0) {
-    let t = touches[0];
-    let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
-
-    if (distToSlider < 25) {
-      isDraggingSlider = true;
-      lastTouchY = t.y;
-      return false;
-    }
+  if (touches[0] && dist(touches[0].x, touches[0].y, 25, sliderY + 15) < 25) {
+    isDragging = true;
+    lastTouchY = touches[0].y;
+    return false;
   }
-
-  this._tapCandidate = true;
+  tapCandidate = true;
   return false;
 }
 
 function touchMoved() {
-  if (isPlayingVideo) return false;
-
-  if (isDraggingSlider && touches.length > 0) {
-    let t = touches[0];
-
-    if (lastTouchY !== null) {
-      let dy = t.y - lastTouchY;
-      sliderY += dy;
-      sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
-      updateBrightness();
-    }
-
-    lastTouchY = t.y;
+  if (isDragging && !isPlayingVideo && touches[0]) {
+    if (lastTouchY) sliderY = constrain(sliderY + touches[0].y - lastTouchY, sliderMinY, sliderMaxY);
+    lastTouchY = touches[0].y;
+    updateBrightness();
   }
-
-  this._tapCandidate = false;
+  tapCandidate = false;
   return false;
 }
 
 function touchEnded() {
   if (isPlayingVideo) return false;
-
-  isDraggingSlider = false;
+  isDragging = false;
   lastTouchY = null;
-
-  if (this._tapCandidate) {
-    toggleImage();
-  }
-
-  this._tapCandidate = false;
+  if (tapCandidate) toggleImage();
+  tapCandidate = false;
   return false;
 }
 
 function toggleImage() {
-  touchCount++;
-
-  if (touchCount === 100) {
-    playVideo();
+  if (++touchCount === 100) {
+    isPlayingVideo = true;
+    video.show();
+    video.volume(0);
+    video.play();
     return;
   }
-
-  if (currentImg === lightonImg) {
-    currentImg = lightoffImg;
+  
+  if (currentImg === img1) {
+    currentImg = img2;
     savedBrightnessLevel = brightnessLevel;
     brightnessLevel = 0;
     sliderY = sliderMaxY;
   } else {
-    currentImg = lightonImg;
-    brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
-    let normalizedBrightness = brightnessLevel / 5;
-    sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
+    currentImg = img1;
+    brightnessLevel = savedBrightnessLevel || 2.5;
+    sliderY = sliderMaxY - (brightnessLevel / 5) * (sliderMaxY - sliderMinY);
   }
-}
-
-function playVideo() {
-  isPlayingVideo = true;
-  videoElement.style.display = 'block';
-  videoElement.currentTime = 0;
-  videoElement.play().catch(err => {
-    console.error('Video playback failed:', err);
-    resetAfterVideo();
-  });
-}
-
-function onVideoEnded() {
-  resetAfterVideo();
-}
-
-function resetAfterVideo() {
-  isPlayingVideo = false;
-  videoElement.style.display = 'none';
-  videoElement.pause();
-  videoElement.currentTime = 0;
-  touchCount = 0;
-  currentImg = lightoffImg;
-  brightnessLevel = 0;
-  savedBrightnessLevel = 0;
-  sliderY = sliderMaxY;
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-  sliderMaxY = height - 50 - sliderHeight;
+  sliderMaxY = height - 80;
 }
