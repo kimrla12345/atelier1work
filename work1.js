@@ -6,6 +6,7 @@ let isDraggingSlider = false;
 let sliderMinY = 50;
 let sliderMaxY = 0;
 let savedBrightnessLevel = 0;
+
 let touchCount = 0;
 let lastTouchY = null;
 
@@ -22,14 +23,16 @@ function setup() {
   c.parent('canvasWrap');
   c.elt.style.touchAction = "none";
 
-  // 권한 요청 버튼 (iOS 대응)
-  let btn = createButton('Enable motion sensors');
-  btn.position(20,20);
-  btn.mousePressed(() => {
-    requestMotionPermission();
+  // iOS 모션 권한 요청 버튼
+  let btn = createButton('Enable Motion Permission');
+  btn.position(20, 20);
+  btn.style('z-index', '1001');
+  btn.mousePressed(async () => {
+    await requestMotionPermission();
     btn.hide();
   });
 
+  // 비디오 셋업 (네 기존)
   videoElement = document.createElement('video');
   videoElement.setAttribute('playsinline', 'playsinline');
   videoElement.setAttribute('webkit-playsinline', 'webkit-playsinline');
@@ -52,7 +55,7 @@ function setup() {
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
-  // 흔들기 민감도 설정
+  // 흔들기 감도 설정 (기본 30)
   setShakeThreshold(30);
 }
 
@@ -63,6 +66,7 @@ function draw() {
 
   background(0);
 
+  // 이미지 비율 맞춰서 그림
   let ar_img = currentImg.width / currentImg.height;
   let ar_win = width / height;
   let drawW, drawH;
@@ -74,8 +78,9 @@ function draw() {
     drawH = width / ar_img;
   }
   imageMode(CENTER);
-  image(currentImg, width/2, height/2, drawW, drawH);
+  image(currentImg, width / 2, height / 2, drawW, drawH);
 
+  // 빛 효과 (네 기존 로직)
   if (currentImg === img1 && brightnessLevel > 0) {
     let brightness = map(brightnessLevel, 0.1, 5, 0, 150);
     let radius = map(brightnessLevel, 0.1, 5, 50, 400);
@@ -94,24 +99,7 @@ function draw() {
   fill(255);
   textAlign(CENTER, TOP);
   textSize(16);
-  text('Click: ' + touchCount, width/2, 20);
-}
-
-function requestMotionPermission() {
-  if (typeof DeviceMotionEvent !== 'undefined'
-      && typeof DeviceMotionEvent.requestPermission === 'function') {
-    DeviceMotionEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          console.log('Motion permission granted');
-        } else {
-          console.log('Motion permission denied');
-        }
-      })
-      .catch(err => {
-        console.log('Motion permission error:', err);
-      });
-  }
+  text('Click: ' + touchCount, width / 2, 20);
 }
 
 function drawSlider() {
@@ -126,16 +114,13 @@ function drawSlider() {
 function updateBrightness() {
   let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY));
   brightnessLevel = constrain(normalizedPos * 5, 0, 5);
-  if (brightnessLevel > 0.1) {
-    currentImg = img1;
-  } else {
-    currentImg = img2;
-  }
+  if (brightnessLevel > 0.1) currentImg = img1;
+  else currentImg = img2;
 }
 
 function mousePressed() {
   if (isPlayingVideo) return false;
-  if (dist(mouseX, mouseY, 25, sliderY + sliderHeight/2) < 25) {
+  if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
     isDraggingSlider = true;
     return false;
   }
@@ -162,7 +147,7 @@ function touchStarted() {
   if (isPlayingVideo) return false;
   if (touches.length > 0) {
     let t = touches[0];
-    let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight/2);
+    let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
     if (distToSlider < 25) {
       isDraggingSlider = true;
       lastTouchY = t.y;
@@ -204,6 +189,7 @@ function toggleImage(isShake = false) {
   if (!isShake) {
     touchCount++;
   }
+
   if (currentImg === img1) {
     currentImg = img2;
     savedBrightnessLevel = brightnessLevel;
@@ -218,6 +204,7 @@ function toggleImage(isShake = false) {
 }
 
 function deviceShaken() {
+  // 흔들기 감지되면 여기
   if (isPlayingVideo) return;
   toggleImage(true);
 }
@@ -251,4 +238,26 @@ function resetAfterVideo() {
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
   sliderMaxY = height - 50 - sliderHeight;
+}
+
+async function requestMotionPermission() {
+  // iOS 13+ 등에서 모션 권한 요청
+  if (typeof DeviceMotionEvent !== 'undefined' 
+      && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const response = await DeviceMotionEvent.requestPermission();
+      console.log('Motion permission response:', response);
+      if (response === 'granted') {
+        // 권한 허용된 경우, 추가 설정이 필요하면 여기
+        // (예: 이벤트 리스너 등)
+      } else {
+        console.warn('Motion permission was denied');
+      }
+    } catch (err) {
+      console.error('Error requesting motion permission:', err);
+    }
+  } else {
+    // 권한 요청 API가 없는 경우도 있음 (Android 등)
+    console.log('DeviceMotionEvent.requestPermission not supported');
+  }
 }
