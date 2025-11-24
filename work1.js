@@ -28,8 +28,8 @@ let permissionGranted = false;
 // ========== 카메라 변수 ==========
 let capture;
 let cameraReady = false;
-let isDark = false;  // 현재 어두운지 여부
-let darknessThreshold = 50;  // 어두움 판단 임계값 (0-255)
+let isDark = false;
+let darknessThreshold = 50;
 // ===============================
 
 function preload() {
@@ -84,16 +84,15 @@ function setup() {
   // ========== 카메라 설정 (후면 카메라) ==========
   let constraints = {
     video: {
-      facingMode: { ideal: "environment" }  // 후면 카메라
+      facingMode: { ideal: "environment" }
     },
     audio: false
   };
   
   capture = createCapture(constraints);
-  capture.size(160, 120);  // 작은 크기로 성능 최적화
-  capture.hide();  // 화면에 안 보이게
+  capture.size(160, 120);
+  capture.hide();
   
-  // 카메라 준비될 때까지 대기
   capture.elt.addEventListener('loadeddata', () => {
     cameraReady = true;
   });
@@ -140,7 +139,6 @@ function checkCameraBrightness() {
   let totalBrightness = 0;
   let pixelCount = 0;
   
-  // 모든 픽셀의 평균 밝기 계산
   for (let i = 0; i < capture.pixels.length; i += 4) {
     let r = capture.pixels[i];
     let g = capture.pixels[i + 1];
@@ -155,21 +153,20 @@ function checkCameraBrightness() {
   // ⭐ 어두우면 (손으로 가림) → 램프 켜기
   if (avgBrightness < darknessThreshold) {
     if (!isDark) {
-      // 방금 어두워짐
       isDark = true;
       currentImg = img1;
       brightnessLevel = 3;
-      lastInteractionTime = millis();  // Idle 타이머 리셋
+      lastInteractionTime = millis();  // ⭐ 상호작용으로 인식
+      isIdle = false;  // ⭐ Idle 해제
     }
   } 
   // ⭐ 밝으면 (손 치움) → 램프 끄기
   else {
     if (isDark) {
-      // 방금 밝아짐
       isDark = false;
       currentImg = img2;
       brightnessLevel = 0;
-      isIdle = false;  // Idle 멈춤
+      lastInteractionTime = millis();  // ⭐ 타이머 리셋 (밝아진 순간부터 2초 카운트)
     }
   }
 }
@@ -182,15 +179,13 @@ function draw() {
 
   background(0);
   
-  // ========== 카메라 밝기 체크 (매 프레임) ==========
   checkCameraBrightness();
-  // ==============================================
 
   // ========== ALWAYS ALIVE: Idle 깜빡임 ==========
   let currentTime = millis();
   
-  // ⭐ 조건: 어두울 때만(isDark) AND 2초 경과 AND 슬라이더 조작 안 함
-  if (isDark && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
+  // ⭐⭐⭐ 수정: 밝을 때만(!isDark) AND 2초 경과 AND 슬라이더 조작 안 함
+  if (!isDark && currentTime - lastInteractionTime > idleTimeout && !isDraggingSlider) {
     isIdle = true;
     
     if (currentTime > nextBlinkTime) {
@@ -206,8 +201,8 @@ function draw() {
       nextBlinkTime = currentTime + random(300, 800);
     }
   } else {
-    if (!isDark) {
-      isIdle = false;  // 밝을 때는 Idle 없음
+    if (isDark) {
+      isIdle = false;  // ⭐ 어두울 때는 Idle 없음
     }
   }
   // ===============================================
@@ -249,11 +244,14 @@ function draw() {
   textSize(16);
   text('Click: ' + touchCount, width/2, 20);
   
-  // ========== 디버깅용 (밝기 표시) ==========
+  // ========== 디버깅용 ==========
   fill(255, 200);
   textSize(12);
-  text(isDark ? 'Dark (Lamp ON)' : 'Bright (Lamp OFF)', width/2, 60);
-  // ======================================
+  text(isDark ? 'Dark (NO blink)' : 'Bright (Can blink)', width/2, 60);
+  if (isIdle) {
+    text('~ breathing ~', width/2, 80);
+  }
+  // ============================
 }
 
 function drawSlider() {
