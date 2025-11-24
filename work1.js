@@ -15,6 +15,7 @@ let isPlayingVideo = false;
 // Shake 변수
 let lastX, lastY, lastZ;
 let shakeEnabled = false;
+let permissionAsked = false;
 
 function preload() {
   img1 = loadImage('lighton.jpg');  
@@ -49,56 +50,25 @@ function setup() {
   currentImg = img2;
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
+}
 
-  // 권한 요청 버튼 (작고, 하단 우측)
-  const btn = document.createElement('button');
-  btn.id = 'shakeBtn';
-  btn.innerText = '🔔';
-  btn.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    right: 20px;
-    z-index: 9999;
-    width: 50px;
-    height: 50px;
-    padding: 0;
-    background: #FF5722;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    font-size: 24px;
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-    touch-action: manipulation;
-    -webkit-tap-highlight-color: transparent;
-  `;
-  document.body.appendChild(btn);
-
-  // 클릭 및 터치 이벤트 모두 처리
-  const handlePermission = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
-      try {
-        const res = await DeviceMotionEvent.requestPermission();
-        if (res === 'granted') {
-          startShake();
-          btn.remove();
-        } else {
-          alert('Permission denied');
-        }
-      } catch(err) {
-        console.error(err);
-      }
-    } else {
-      startShake();
-      btn.remove();
-    }
-  };
+// 권한 요청 (첫 터치 시 자동)
+async function askPermission() {
+  if (permissionAsked) return;
+  permissionAsked = true;
   
-  btn.addEventListener('click', handlePermission);
-  btn.addEventListener('touchend', handlePermission);
+  if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+    try {
+      const res = await DeviceMotionEvent.requestPermission();
+      if (res === 'granted') {
+        startShake();
+      }
+    } catch(err) {
+      console.error(err);
+    }
+  } else {
+    startShake();
+  }
 }
 
 // Shake 시작
@@ -204,6 +174,8 @@ function updateBrightness() {
 }
 
 function mousePressed() {
+  askPermission(); // 첫 클릭 시 권한 요청
+  
   if (isPlayingVideo) return false;
 
   if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
@@ -232,6 +204,8 @@ function mouseReleased() {
 }
 
 function touchStarted() {
+  askPermission(); // 첫 터치 시 권한 요청
+  
   if (isPlayingVideo) return false;
 
   if (touches.length > 0) {
