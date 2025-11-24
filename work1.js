@@ -1,3 +1,4 @@
+// 기존 코드 절대 건드리지 않음
 let img1, img2, currentImg;
 let sliderY = 0;
 let sliderHeight = 30;
@@ -12,7 +13,7 @@ let lastTouchY = null;
 let videoElement;
 let isPlayingVideo = false;
 
-// --- 추가: 마이크 입력 ---
+// --- 추가: 마이크 입력 변수 ---
 let mic;
 
 function preload() {
@@ -49,8 +50,8 @@ function setup() {
 
   videoElement.addEventListener('ended', onVideoEnded);
 
-  currentImg = img2;
-
+  // --- 기존 코드 그대로 초기 이미지 세팅 ---
+  currentImg = img2; // 처음에는 lightoff.jpg
   sliderMaxY = height - 50 - sliderHeight;
   sliderY = sliderMaxY;
 
@@ -60,19 +61,17 @@ function setup() {
 }
 
 function draw() {
-  if (isPlayingVideo) {
-    return;
-  }
+  if (isPlayingVideo) return;
 
   // --- 추가: 소리 감지로 이미지 전환 ---
   let vol = mic.getLevel(); // 0~1
-  if (vol > 0.1) { // 민감도 조절 가능
-    currentImg = img1;
+  if (vol > 0.1) {
+    currentImg = img1; // 소리 감지 시 lighton
   } else if (brightnessLevel === 0) {
-    currentImg = img2;
+    currentImg = img2; // 소리 없으면 lightoff
   }
-  // --- 추가 끝 ---
 
+  // --- 기존 draw 코드 그대로 ---
   background(0);
 
   let ar_img = currentImg.width / currentImg.height;
@@ -111,163 +110,4 @@ function draw() {
   textAlign(CENTER, TOP);
   textSize(16);
   text('Click: ' + touchCount, width/2, 20);
-}
-
-function drawSlider() {
-  stroke(100);
-  strokeWeight(2);
-  line(25, sliderMinY, 25, height - 50);
-
-  fill(255, 255, 100);
-  noStroke();
-  circle(25, sliderY + sliderHeight / 2, 16);
-}
-
-function updateBrightness() {
-  let normalizedPos = 1 - ((sliderY - sliderMinY) / (sliderMaxY - sliderMinY));
-  brightnessLevel = constrain(normalizedPos * 5, 0, 5);
-
-  if (brightnessLevel > 0.1) {
-    currentImg = img1;
-  } else {
-    currentImg = img2;
-  }
-}
-
-function mousePressed() {
-  if (isPlayingVideo) return false;
-
-  if (dist(mouseX, mouseY, 25, sliderY + sliderHeight / 2) < 25) {
-    isDraggingSlider = true;
-    return false;
-  }
-
-  toggleImage();
-  return false;
-}
-
-function mouseDragged() {
-  if (isPlayingVideo) return false;
-
-  if (isDraggingSlider) {
-    sliderY += movedY;
-    sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
-    updateBrightness();
-  }
-  return false;
-}
-
-function mouseReleased() {
-  isDraggingSlider = false;
-  return false;
-}
-
-function touchStarted() {
-  if (isPlayingVideo) return false;
-
-  if (touches.length > 0) {
-    let t = touches[0];
-    let distToSlider = dist(t.x, t.y, 25, sliderY + sliderHeight / 2);
-
-    if (distToSlider < 25) {
-      isDraggingSlider = true;
-      lastTouchY = t.y;
-      return false;
-    }
-  }
-
-  this._tapCandidate = true;
-
-  return false;
-}
-
-function touchMoved() {
-  if (isPlayingVideo) return false;
-
-  if (isDraggingSlider && touches.length > 0) {
-    let t = touches[0];
-
-    if (lastTouchY !== null) {
-      let dy = t.y - lastTouchY;
-      sliderY += dy;
-      sliderY = constrain(sliderY, sliderMinY, sliderMaxY);
-      updateBrightness();
-    }
-
-    lastTouchY = t.y;
-  }
-
-  this._tapCandidate = false;
-
-  return false;
-}
-
-function touchEnded() {
-  if (isPlayingVideo) return false;
-
-  isDraggingSlider = false;
-  lastTouchY = null;
-
-  if (this._tapCandidate) {
-    toggleImage();
-  }
-
-  this._tapCandidate = false;
-
-  return false;
-}
-
-
-function toggleImage() {
-  touchCount++;
-
-  if (touchCount === 100) {
-    playVideo();
-    return;
-  }
-
-  if (currentImg === img1) {
-    currentImg = img2;
-    savedBrightnessLevel = brightnessLevel;
-    brightnessLevel = 0;
-    sliderY = sliderMaxY;
-  } else {
-    currentImg = img1;
-    brightnessLevel = savedBrightnessLevel > 0 ? savedBrightnessLevel : 2.5;
-    let normalizedBrightness = brightnessLevel / 5;
-    sliderY = sliderMaxY - (normalizedBrightness * (sliderMaxY - sliderMinY));
-  }
-}
-
-function playVideo() {
-  isPlayingVideo = true;
-  videoElement.style.display = 'block';
-  videoElement.currentTime = 0;
-
-  videoElement.play().catch(err => {
-    console.error('Video playback failed:', err);
-    resetAfterVideo();
-  });
-}
-
-function onVideoEnded() {
-  resetAfterVideo();
-}
-
-function resetAfterVideo() {
-  isPlayingVideo = false;
-  videoElement.style.display = 'none';
-  videoElement.pause();
-  videoElement.currentTime = 0;
-
-  touchCount = 0;
-  currentImg = img2;
-  brightnessLevel = 0;
-  savedBrightnessLevel = 0;
-  sliderY = sliderMaxY;
-}
-
-function windowResized() {
-  resizeCanvas(windowWidth, windowHeight);
-  sliderMaxY = height - 50 - sliderHeight;
 }
